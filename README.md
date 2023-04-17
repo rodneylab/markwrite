@@ -22,9 +22,10 @@ Features:
 
 ## 🗺️ Roadmap
 
-- add spelling, punctuation and grammar check
-- add debouncing
-- output statistics, such as word count
+- [ ] add spelling, punctuation and grammar check
+- [x] add debouncing
+- [ ] output statistics, such as word count
+- [ ] serve output HTML locally for previewing document
 
 ## ☎️ Reach Out
 

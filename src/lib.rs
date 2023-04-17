@@ -81,6 +81,7 @@ pub fn markdown_to_processed_html(markdown: &str, options: &ParseInputOptions) -
 pub fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: &P1,
     output_path: &P2,
+    mut stdout_handle: impl Write,
 ) -> Result<(), notify::Error> {
     let options = ParseInputOptions {
         canonical_root_url: None,
@@ -107,9 +108,11 @@ pub fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
                 })
                 .unwrap();
             info!("Wrote {output_display_path}.");
+            writeln!(stdout_handle, "[ INFO ] Wrote {output_display_path}.")?;
         }
         None => eprintln!("[ ERROR ] Unable to parse markdownto HTML"),
     };
+    stdout_handle.flush()?;
     Ok(())
 }
 
@@ -139,6 +142,7 @@ mod tests {
     use super::{strip_frontmatter, update_html};
     use std::{
         fs::{read_to_string, remove_file},
+        io,
         path::Path,
     };
 
@@ -161,9 +165,11 @@ This is a test.";
         // arrange
         let markdown_path = Path::new("./fixtures/file.md");
         let html_path = Path::new("./fixtures/file.html");
+        let stdout = io::stdout();
+        let mut handle = io::BufWriter::new(stdout);
 
         // act
-        update_html(&markdown_path, &html_path).expect("Error calling update_html");
+        update_html(&markdown_path, &html_path, &mut handle).expect("Error calling update_html");
 
         // assert
         let html = read_to_string(html_path).expect("Unable to read generated HTML");
