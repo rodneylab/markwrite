@@ -4,6 +4,7 @@ use log::{info, trace};
 use notify::RecursiveMode;
 use notify_debouncer_mini::new_debouncer;
 use std::{
+    collections::HashSet,
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -25,10 +26,11 @@ struct Cli {
     output: Option<PathBuf>,
 }
 
-fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
+async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: P1,
     output_path: P2,
-    mut stdout_handle: impl Write,
+    dictionary: &mut HashSet<String>,
+    stdout_handle: &mut impl Write,
 ) {
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -45,7 +47,10 @@ fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
                 trace!("{:?}", event);
 
                 // Editor may temporarily rename the input file while saving it
-                if markwrite::update_html(&path, &output_path, &mut stdout_handle).is_err() {
+                if markwrite::update_html(&path, &output_path, dictionary, stdout_handle)
+                    .await
+                    .is_err()
+                {
                     info!("[ INFO ] Looks like the input file was renamed.");
                 };
             }
@@ -54,7 +59,8 @@ fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = &Cli::parse();
     env_logger::Builder::new()
         .filter_level(cli.verbose.log_level_filter())
@@ -81,12 +87,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err(error_message.into());
     }
 
-    // Watch for input file modifications and generate HTML when they occur.
     let stdout = io::stdout();
     let mut stdout_handle = io::BufWriter::new(stdout);
+    let mut dictionary: HashSet<String> = HashSet::new();
+    markwrite::load_dictionary(
+        ".markwrite/custom.dict",
+        &mut dictionary,
+        &mut stdout_handle,
+    );
+    // Watch for input file modifications and generate HTML when they occur.
     writeln!(stdout_handle, "[ INFO ] waiting for file changes.")?;
     stdout_handle.flush()?;
 
-    debounce_watch(path, output_path, &mut stdout_handle);
+    debounce_watch(path, output_path, &mut dictionary, &mut stdout_handle).await;
     Ok(())
 }
