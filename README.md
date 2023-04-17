@@ -24,7 +24,7 @@ Features:
 
 - [ ] add spelling, punctuation and grammar check
 - [x] add debouncing
-- [ ] output statistics, such as word count
+- [x] output statistics, such as word count
 - [ ] serve output HTML locally for previewing document
 
 ## ☎️ Reach Out

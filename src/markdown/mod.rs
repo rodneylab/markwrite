@@ -79,6 +79,10 @@ impl TextStatistics {
             word_count,
         }
     }
+
+    pub fn word_count(&self) -> u32 {
+        self.word_count
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

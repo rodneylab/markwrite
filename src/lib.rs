@@ -93,7 +93,14 @@ pub fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
         Err(error) => return Err(error.into()),
     };
 
-    let ParseResults { html, .. } = markdown_to_processed_html(&markdown, &options);
+    let ParseResults {
+        html, statistics, ..
+    } = markdown_to_processed_html(&markdown, &options);
+    let word_count = if let Some(value) = statistics {
+        value.word_count()
+    } else {
+        0
+    };
     let output_display_path = output_path.as_ref().display().to_string();
     match html {
         Some(value) => {
@@ -108,7 +115,10 @@ pub fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
                 })
                 .unwrap();
             info!("Wrote {output_display_path}.");
-            writeln!(stdout_handle, "[ INFO ] Wrote {output_display_path}.")?;
+            writeln!(
+                stdout_handle,
+                "[ INFO ] Wrote {output_display_path} ({word_count} words)."
+            )?;
         }
         None => eprintln!("[ ERROR ] Unable to parse markdownto HTML"),
     };
