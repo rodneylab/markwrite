@@ -24,7 +24,7 @@ struct Cli {
     #[clap(short, long, value_parser)]
     output: Option<PathBuf>,
 }
-//fn debounce_watch() {
+
 fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: P1,
     output_path: P2,
@@ -40,9 +40,6 @@ fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
         .unwrap();
 
     for events in rx {
-        //        if let Ok(e) = events {
-        //            println!("{:?}", e);
-        //        }
         match events {
             Ok(event) => {
                 trace!("{:?}", event);
@@ -58,45 +55,13 @@ fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //fn main() {
-    //     std::thread::spawn(|| {
-    //         let path = Path::new("test.txt");
-    //         let _ = std::fs::remove_file(&path);
-    //         loop {
-    //             std::fs::write(&path, b"Lorem ipsum").unwrap();
-    //             std::thread::sleep(Duration::from_millis(250));
-    //         }
-    //     });
-    //
-    //     let (tx, rx) = std::sync::mpsc::channel();
-    //
-    //     let mut debouncer = new_debouncer(Duration::from_secs(2), None, tx).unwrap();
-    //
-    //     debouncer
-    //         .watcher()
-    //         .watch(Path::new("."), RecursiveMode::Recursive)
-    //         .unwrap();
-    //
-    //     for events in rx {
-    //         if let Ok(e) = events {
-    //             println!("{:?}", e);
-    //         }
-    //     }
     let cli = &Cli::parse();
     env_logger::Builder::new()
         .filter_level(cli.verbose.log_level_filter())
         .init();
     let path = &cli.path;
-
-    // set output path to provided value or set to default
-    let default_output_path = match path.file_stem() {
-        Some(stem_value) => {
-            let mut stem = PathBuf::from(stem_value);
-            stem.set_extension("html");
-            stem
-        }
-        None => PathBuf::from("unnamed.html"),
-    };
+    let mut default_output_path = PathBuf::from(path);
+    default_output_path.set_extension("html");
     let output_path = match &cli.output {
         Some(value) => value,
         None => &default_output_path,
@@ -121,14 +86,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout_handle = io::BufWriter::new(stdout);
     writeln!(stdout_handle, "[ INFO ] waiting for file changes.")?;
     stdout_handle.flush()?;
-    //         futures::executor::block_on(async {
-    //             if let Err(e) = async_watch(path, output_path).await {
-    //                 eprintln!(
-    //                     "[ ERROR ] Something went wrong in setup for watching the input: {:?}",
-    //                     e
-    //                 )
-    //             }
-    //         });
 
     debounce_watch(path, output_path, &mut stdout_handle);
     Ok(())
