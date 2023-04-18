@@ -249,6 +249,9 @@ struct PlaintextWriter<'a, I, W> {
 
     /// Optionally prepended to relative URLs
     canonical_root_url: Option<&'a str>,
+
+    /// Optionally prepended to relative URLs
+    skip_code_blocks: bool,
 }
 
 impl<'a, I, W> PlaintextWriter<'a, I, W>
@@ -257,7 +260,12 @@ where
     W: StrWrite,
 {
     #[allow(unused)]
-    fn new(iter: I, writer: W, canonical_root_url: Option<&'a str>) -> Self {
+    fn new(
+        iter: I,
+        writer: W,
+        canonical_root_url: Option<&'a str>,
+        skip_code_blocks: bool,
+    ) -> Self {
         Self {
             iter,
             writer,
@@ -266,6 +274,7 @@ where
             line_length: 72,
             ignore_tags: vec!["tool-tip"],
             canonical_root_url,
+            skip_code_blocks,
         }
     }
 
@@ -296,9 +305,22 @@ where
     fn run(mut self) -> io::Result<()> {
         while let Some(event) = self.iter.next() {
             match event {
-                Start(tag) => {
-                    self.start_tag(tag)?;
-                }
+                Start(tag) => match tag {
+                    Tag::CodeBlock(_) => {
+                        if self.skip_code_blocks {
+                            for html_event in self.iter.by_ref() {
+                                if let End(Tag::CodeBlock(_)) = html_event {
+                                    break;
+                                }
+                            }
+                        } else {
+                            self.start_tag(tag)?;
+                        }
+                    }
+                    _ => {
+                        self.start_tag(tag)?;
+                    }
+                },
                 End(tag) => {
                     self.end_tag(tag)?;
                 }
@@ -400,11 +422,15 @@ where
 }
 
 #[allow(unused)]
-fn push_plaintext<'a, I>(s: &mut String, iter: I, canonical_root_url: Option<&'a str>)
-where
+fn push_plaintext<'a, I>(
+    s: &mut String,
+    iter: I,
+    canonical_root_url: Option<&'a str>,
+    skip_code_blocks: bool,
+) where
     I: Iterator<Item = Event<'a>>,
 {
-    PlaintextWriter::new(iter, s, canonical_root_url)
+    PlaintextWriter::new(iter, s, canonical_root_url, skip_code_blocks)
         .run()
         .unwrap();
 }
@@ -416,6 +442,8 @@ pub struct ParseMarkdownOptions<'a> {
 
     #[allow(unused)]
     enable_smart_punctuation: bool,
+
+    skip_code_blocks: bool,
 }
 
 impl<'a> Default for ParseMarkdownOptions<'a> {
@@ -423,6 +451,7 @@ impl<'a> Default for ParseMarkdownOptions<'a> {
         ParseMarkdownOptions {
             canonical_root_url: None,
             enable_smart_punctuation: true,
+            skip_code_blocks: false,
         }
     }
 }
@@ -439,6 +468,11 @@ impl<'a> ParseMarkdownOptions<'a> {
         self.enable_smart_punctuation = value;
         self
     }
+
+    pub fn disable_code_block_output(&mut self, value: bool) -> &mut Self {
+        self.skip_code_blocks = value;
+        self
+    }
 }
 
 #[allow(unused)]
@@ -446,6 +480,7 @@ pub fn parse_markdown_to_plaintext(markdown: &str, options: ParseMarkdownOptions
     let ParseMarkdownOptions {
         canonical_root_url,
         enable_smart_punctuation,
+        skip_code_blocks,
     } = options;
 
     let mut parser_options = Options::empty();
@@ -455,6 +490,11 @@ pub fn parse_markdown_to_plaintext(markdown: &str, options: ParseMarkdownOptions
     let parser = Parser::new_ext(markdown, parser_options);
 
     let mut plaintext_buf = String::new();
-    push_plaintext(&mut plaintext_buf, parser, canonical_root_url);
+    push_plaintext(
+        &mut plaintext_buf,
+        parser,
+        canonical_root_url,
+        skip_code_blocks,
+    );
     plaintext_buf
 }

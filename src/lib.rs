@@ -62,7 +62,8 @@ async fn grammar_check(
     stdout_handle: &mut impl Write,
 ) {
     let grammar_checker = GrammarChecker::new(None);
-    let markdown_options = ParseMarkdownOptions::default();
+    let mut markdown_options = ParseMarkdownOptions::default();
+    markdown_options.disable_code_block_output(true);
     let plain_text = parse_markdown_to_plaintext(markdown, markdown_options);
 
     let mut start: usize = 0;
