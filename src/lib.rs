@@ -211,10 +211,26 @@ fn strip_frontmatter(input: &str) -> &str {
     input
 }
 
+#[derive(Default)]
+pub struct MarkwriteOptions {
+    check_grammar: bool,
+}
+
+impl MarkwriteOptions {
+    pub fn check_grammar(&self) -> bool {
+        self.check_grammar
+    }
+
+    pub fn enable_grammar_check(&mut self) {
+        self.check_grammar = true;
+    }
+}
+
 pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: &P1,
     output_path: &P2,
     dictionary: &mut HashSet<String>,
+    markwrite_options: &MarkwriteOptions,
     stdout_handle: &mut impl Write,
 ) -> Result<(), notify::Error> {
     let options = ParseInputOptions {
@@ -236,7 +252,11 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
     } else {
         0
     };
-    grammar_check(markdown, dictionary, stdout_handle).await;
+
+    if markwrite_options.check_grammar() {
+        grammar_check(markdown, dictionary, stdout_handle).await;
+    }
+
     let output_display_path = output_path.as_ref().display().to_string();
     match html {
         Some(value) => {
@@ -264,7 +284,9 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
 
 #[cfg(test)]
 mod tests {
-    use super::{add_word_to_dictionary, load_dictionary, strip_frontmatter, update_html};
+    use super::{
+        add_word_to_dictionary, load_dictionary, strip_frontmatter, update_html, MarkwriteOptions,
+    };
     use std::{
         collections::HashSet,
         fs::{self, read_to_string, remove_file},
@@ -386,11 +408,18 @@ This is a test.";
         let html_path = Path::new("./fixtures/file.html");
         let stdout = io::stdout();
         let mut handle = io::BufWriter::new(stdout);
+        let options = MarkwriteOptions::default();
 
         // act
-        update_html(&markdown_path, &html_path, &mut dictionary, &mut handle)
-            .await
-            .expect("Error calling update_html");
+        update_html(
+            &markdown_path,
+            &html_path,
+            &mut dictionary,
+            &options,
+            &mut handle,
+        )
+        .await
+        .expect("Error calling update_html");
 
         // assert
         let html = read_to_string(html_path).expect("Unable to read generated HTML");

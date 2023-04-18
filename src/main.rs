@@ -19,6 +19,10 @@ struct Cli {
     #[clap(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
 
+    /// Enable spelling, punctuation and grammar check
+    #[clap(short, long)]
+    spelling: bool,
+
     #[clap(short, long)]
     watch: bool,
 
@@ -30,6 +34,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: P1,
     output_path: P2,
     dictionary: &mut HashSet<String>,
+    options: &markwrite::MarkwriteOptions,
     stdout_handle: &mut impl Write,
 ) {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -47,7 +52,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
                 trace!("{:?}", event);
 
                 // Editor may temporarily rename the input file while saving it
-                if markwrite::update_html(&path, &output_path, dictionary, stdout_handle)
+                if markwrite::update_html(&path, &output_path, dictionary, options, stdout_handle)
                     .await
                     .is_err()
                 {
@@ -66,6 +71,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
     let path = &cli.path;
+
+    let mut options = markwrite::MarkwriteOptions::default();
+
+    if cli.spelling {
+        options.enable_grammar_check()
+    }
+
     let mut default_output_path = PathBuf::from(path);
     default_output_path.set_extension("html");
     let output_path = match &cli.output {
@@ -99,6 +111,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(stdout_handle, "[ INFO ] waiting for file changes.")?;
     stdout_handle.flush()?;
 
-    debounce_watch(path, output_path, &mut dictionary, &mut stdout_handle).await;
+    debounce_watch(
+        path,
+        output_path,
+        &mut dictionary,
+        &options,
+        &mut stdout_handle,
+    )
+    .await;
     Ok(())
 }
