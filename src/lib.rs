@@ -3,7 +3,7 @@ mod html_process;
 mod markdown;
 mod url_utility;
 
-use crate::grammar::GrammarChecker;
+use crate::grammar::{GrammarCheckResult, GrammarChecker};
 use crate::html_process::process_html;
 use anyhow::{Context, Result};
 use log::{error, info, trace};
@@ -15,8 +15,10 @@ use std::{
     cmp,
     collections::HashSet,
     fs::{read_to_string, File, OpenOptions},
+    future::Future,
     io::{BufRead, BufReader, Write},
     path::Path,
+    pin::Pin,
 };
 
 pub struct ParseInputOptions {
@@ -33,26 +35,26 @@ pub struct ParseResults {
     errors: Option<Vec<String>>,
 }
 
-fn strip_frontmatter(input: &str) -> &str {
-    let mut lines = input.lines();
-    if let Some(first_line) = lines.next() {
-        if first_line.trim_end() != "---" {
-            return input;
-        };
-
-        let rest = match input.split_once('\n') {
-            Some((_first_line, rest)) => rest,
-            None => {
-                return input;
-            }
-        };
-        return match rest.split_once("\n---") {
-            Some((_frontmatter, body)) => body.trim(),
-            None => input,
-        };
+fn display_grammar_check_results(
+    results: &Vec<GrammarCheckResult>,
+    stdout_handle: &mut impl Write,
+) {
+    for result in results {
+        writeln!(stdout_handle, "\nText: {}", result.text())
+            .expect("Expected to be able to write to stdout");
+        writeln!(stdout_handle, "Rule: {}", result.rule())
+            .expect("Expected to be able to write to stdout");
+        writeln!(
+            stdout_handle,
+            "Replacements: {}",
+            result.replacements_string()
+        )
+        .expect("Expected to be able to write to stdout");
     }
-    input
 }
+
+type CombinedGrammarCheckChunkResults =
+    Result<Vec<GrammarCheckResult>, Box<(dyn std::error::Error)>>;
 
 async fn grammar_check(
     markdown: &str,
@@ -67,6 +69,14 @@ async fn grammar_check(
     let chunk_size = 1500;
     let plain_text_length = plain_text.len();
     let mut end: usize = cmp::min(plain_text_length, chunk_size);
+    let mut result_futures_vec: Vec<Box<dyn Future<Output = CombinedGrammarCheckChunkResults>>> =
+        vec![];
+
+    writeln!(
+        stdout_handle,
+        "[ INFO ] Checking text spelling, punctuation and grammar..."
+    )
+    .expect("Expected to be able to write to stdout");
 
     while start < plain_text_length {
         end = if let Some(value) = plain_text[start..end].rfind(". ") {
@@ -81,11 +91,20 @@ async fn grammar_check(
             chunk.split('\n').collect::<Vec<&str>>().len(),
             chunk.len()
         );
-        grammar_checker.check_chunk(chunk, stdout_handle).await;
+        let chunk_results = grammar_checker.check_chunk(chunk);
+        result_futures_vec.push(Box::new(chunk_results));
         start = end;
         end = cmp::min(plain_text_length, end + chunk_size);
         stdout_handle.flush().expect("Unable to flush to stdout");
     }
+    let mut combined_grammar_check_results: Vec<GrammarCheckResult> = Vec::new();
+    for result in result_futures_vec {
+        let result_values = Pin::from(result).await;
+        if let Ok(mut value) = result_values {
+            combined_grammar_check_results.append(&mut value);
+        }
+    }
+    display_grammar_check_results(&combined_grammar_check_results, stdout_handle);
 }
 
 pub fn markdown_to_processed_html(markdown: &str, options: &ParseInputOptions) -> ParseResults {
@@ -169,6 +188,27 @@ pub fn load_dictionary<P: AsRef<Path>>(
             dictionary.insert(word_value);
         };
     });
+}
+
+fn strip_frontmatter(input: &str) -> &str {
+    let mut lines = input.lines();
+    if let Some(first_line) = lines.next() {
+        if first_line.trim_end() != "---" {
+            return input;
+        };
+
+        let rest = match input.split_once('\n') {
+            Some((_first_line, rest)) => rest,
+            None => {
+                return input;
+            }
+        };
+        return match rest.split_once("\n---") {
+            Some((_frontmatter, body)) => body.trim(),
+            None => input,
+        };
+    }
+    input
 }
 
 pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
@@ -312,7 +352,6 @@ This is a test.";
     fn load_dictionary_adds_words_from_file_to_dictionary() {
         //arrange
         let mut dictionary: HashSet<String> = HashSet::new();
-        //let mut handle = String::new();
         let stdout = io::stdout();
         let handle = io::BufWriter::new(stdout);
 

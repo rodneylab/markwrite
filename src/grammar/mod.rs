@@ -1,7 +1,27 @@
 use log::trace;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::Write};
+use std::collections::HashMap;
+
+pub struct GrammarCheckResult {
+    text: String,
+    rule: String,
+    replacements: Vec<String>,
+}
+
+impl GrammarCheckResult {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn rule(&self) -> &str {
+        &self.rule
+    }
+
+    pub fn replacements_string(&self) -> String {
+        self.replacements.join(", ")
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -145,7 +165,63 @@ impl<'a> GrammarChecker<'a> {
         GrammarChecker { url: actual_url }
     }
 
-    pub async fn check_chunk(&self, text: &str, stdout_handle: &mut impl Write) {
+    fn process_language_tools_results(
+        response: &LanguageToolsCheckResponse,
+        results: &mut Vec<GrammarCheckResult>,
+    ) {
+        let LanguageToolsCheckResponse {
+            matches,
+            sentence_ranges,
+            ..
+        } = response;
+
+        for results_match in matches {
+            let LanguageToolsCheckResponseMatch {
+                context,
+                rule,
+                match_type,
+                replacements,
+                ..
+            } = &results_match;
+            let LanguageToolsCheckResponseMatchContext { text, .. } = context;
+            let LanguageToolsCheckResponseMatchRule { description, .. } = rule;
+            let LanguageToolsCheckResponseMatchType { type_name, .. } = match_type;
+            let mut replacements_vec: Vec<&str> = Vec::new();
+            if type_name == "UnknownWord" {
+                let replacements = if replacements.len() < 5 {
+                    replacements
+                } else {
+                    &replacements[0..5]
+                };
+                replacements_vec = replacements
+                    .iter()
+                    .map(|val| {
+                        let LanguageToolsCheckResponseMatchReplacement { value } = val;
+                        &value[..]
+                    })
+                    .collect::<Vec<&str>>();
+            };
+            trace!(
+                "Match: {}",
+                &serde_json::to_string_pretty(&results_match).unwrap()
+            );
+            results.push(GrammarCheckResult {
+                text: text.to_string(),
+                rule: description.to_string(),
+                replacements: replacements_vec.iter().map(|val| val.to_string()).collect(),
+            });
+        }
+        trace!(
+            "Sentence ranges: {}",
+            &serde_json::to_string_pretty(&sentence_ranges).unwrap()
+        );
+    }
+
+    pub async fn check_chunk(
+        &self,
+        text: &str,
+    ) -> Result<Vec<GrammarCheckResult>, Box<dyn std::error::Error>> {
+        let mut results = Vec::new();
         let client = reqwest::Client::new();
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -156,15 +232,8 @@ impl<'a> GrammarChecker<'a> {
         body_data_map.insert("text", text);
         body_data_map.insert("language", "en-GB");
         body_data_map.insert("level", "picky");
-        writeln!(
-            stdout_handle,
-            "Checking chunk spelling, punctuation and grammar..."
-        )
-        .expect("Expected to be able to write to stdout");
-        stdout_handle
-            .flush()
-            .expect("Expected to be able to flush stdout");
-        match client
+
+        let languagetool_response_data = match client
             .post(self.url)
             .headers(headers)
             .form(&body_data_map)
@@ -172,65 +241,31 @@ impl<'a> GrammarChecker<'a> {
             .await
         {
             Ok(response_value) => match response_value.json::<LanguageToolsCheckResponse>().await {
-                Ok(json_value) => {
-                    let LanguageToolsCheckResponse {
-                        matches,
-                        sentence_ranges,
-                        ..
-                    } = json_value;
-
-                    for results_match in matches {
-                        let LanguageToolsCheckResponseMatch {
-                            context,
-                            rule,
-                            match_type,
-                            replacements,
-                            ..
-                        } = &results_match;
-                        let LanguageToolsCheckResponseMatchContext { text, .. } = context;
-                        let LanguageToolsCheckResponseMatchRule { description, .. } = rule;
-                        writeln!(stdout_handle, "/nText: {text}")
-                            .expect("Expected to be able to write to stdout");
-                        writeln!(stdout_handle, "Rule: {description}")
-                            .expect("Expected to be able to write to stdout");
-
-                        let LanguageToolsCheckResponseMatchType { type_name, .. } = match_type;
-                        if type_name == "UnknownWord" {
-                            let replacements = if replacements.len() < 5 {
-                                replacements
-                            } else {
-                                &replacements[0..5]
-                            };
-                            let replacements_string = replacements
-                                .iter()
-                                .map(|val| {
-                                    let LanguageToolsCheckResponseMatchReplacement { value } = val;
-                                    &value[..]
-                                })
-                                .collect::<Vec<&str>>()
-                                .join(", ");
-                            writeln!(stdout_handle, "Replacements: {replacements_string}.",)
-                                .expect("Expected to be able to write to stdout");
-                        };
-                        trace!(
-                            "Match: {}",
-                            &serde_json::to_string_pretty(&results_match).unwrap()
-                        );
-                    }
-                    trace!(
-                        "Sentence ranges: {}",
-                        &serde_json::to_string_pretty(&sentence_ranges).unwrap()
+                Ok(json_value) => json_value,
+                Err(error) => {
+                    if !error.is_request() && error.is_body() {
+                        eprintln!(
+                        "[ ERROR ] error receiving response from remote grammar server response: {:?}.",
+                        error
                     );
+                        return Err(error.into());
+                    }
+                    eprintln!(
+                        "[ ERROR ] error parsing remote grammar server response: {:?}.",
+                        error
+                    );
+                    return Err(error.into());
                 }
-                Err(e) => eprintln!(
-                    "[ ERROR ] error parsing remote grammar server response: {:?}.",
-                    e
-                ),
             },
-            Err(e) => eprintln!(
-                "[ ERROR ] no response from remote grammar check server: {:?}.",
-                e
-            ),
+            Err(error) => {
+                eprintln!(
+                    "[ ERROR ] no response from remote grammar check server: {:?}.",
+                    error
+                );
+                return Err(error.into());
+            }
         };
+        Self::process_language_tools_results(&languagetool_response_data, &mut results);
+        Ok(results)
     }
 }
