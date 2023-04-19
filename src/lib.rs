@@ -152,15 +152,46 @@ async fn grammar_check(
 pub fn markdown_to_processed_html(markdown: &str, options: &ParseInputOptions) -> ParseResults {
     match parse_markdown_to_html(markdown) {
         Ok((html_value, headings, statistics_value)) => {
-            let html = Some(process_html(
+            let raw_html = Some(process_html(
                 &html_value,
                 options.canonical_root_url.as_deref(),
                 options.search_term.as_deref(),
             ));
+            let html = format!(
+                r##"<!DOCTYPE html>
+<html lang="en">
+  <head>
+      <meta charset="UTF-8" >
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+      <link rel="icon" href="/favicon.ico" sizes="any" >
+      <link rel="icon" href="/icon.svg" type="image/svg+xml" >
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" >
+      <link rel="manifest" href="/manifest.webmanifest" >
+      <meta name="theme-color" content="#032539" >
+      <style>:root{{--max-width-full:100%;--max-width-wrapper:38rem;--spacing-px:0.0625rem;--spacing-px-2:0.125rem;--spacing-0:0;--spacing-1:0.25rem;--spacing-4:1rem;--spacing-6:1.5rem;--spacing-12:3rem;--spacing-16:4rem;--font-family:"Helvetica Neue", Helvetica, "Segoe UI", Arial, freesans,
+        sans-serif;--font-weight-normal:400;--font-weight-bold:700;--font-weight-black:900;--font-size-root:18px;--font-size-0:0.9rem;--font-size-1:1.125rem;--font-size-2:1.406rem;--font-size-4:2.197rem;--font-size-5:2.747rem;--font-size-6:3.433rem;--line-height-tight:1.3;--line-height-normal:1.5;--line-height-relaxed:1.75;--colour-heading:hsl(200 7% 8%);--color-heading-black:hsl(0 0% 0%);--colour-text:hsl(207 43% 9%)}}*,:after,:before{{box-sizing:border-box}}*{{margin:0}}html{{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;scroll-behavior:smooth}}@media (prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}body{{display:flex;font:1.125rem/1.5"Helvetica Neue",Helvetica,"Segoe UI",Arial,freesans,sans-serif;font:var(--font-size-1)/var(--line-height-normal) var(--font-family);color:hsl(207 43% 9%);color:var(--colour-text);text-rendering:optimizelegibility}}main{{max-width:38rem;max-width:var(--max-width-wrapper);margin-block:4rem;margin-block:var(--spacing-16);margin-inline:auto}}h1{{font-size:2.747rem;font-size:var(--font-size-5)}}h2{{font-size:2.197rem;font-size:var(--font-size-4)}}h3{{font-size:var(--font-size-3)}}h4{{font-size:1.406rem;font-size:var(--font-size-2)}}h1,h2,h3,h4,h5,h6{{margin:3rem 0 1.5rem;margin:var(--spacing-12) var(--spacing-0) var(--spacing-6);line-height:1.3;line-height:var(--line-height-tight)}}h2,h3,h4,h5,h6{{font-weight:700;font-weight:var(--font-weight-bold);color:hsl(200 7% 8%);color:var(--colour-heading)}}p{{line-height:1.75;line-height:var(--line-height-relaxed);margin:0 0 1rem;margin:var(--spacing-0) var(--spacing-0) var(--spacing-4);padding:0;padding:var(--spacing-0)}}p code{{background-color:#e8f1f4;background-color:var(--colour-theme-3-tint-90);border-radius:.125rem;border-radius:var(--spacing-px-2);padding:.0625rem .25rem;padding:var(--spacing-px) var(--spacing-1);-webkit-box-decoration-break:clone;box-decoration-break:clone}}pre{{margin-top:3rem;margin-top:var(--spacing-12);margin-bottom:4rem;margin-bottom:var(--spacing-16);width:100%;width:var(--max-width-full);max-width:100%;max-width:var(--max-width-full);overflow-x:auto}}.heading-anchor{{display:none}}h2:hover .heading-anchor{{display:inline}}</style>
+      <title>Markwrite</title>
+      <meta name="description" content="Markwrite document" >
+      <meta
+        name="robots"
+        content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
+      >
+      <link rel="canonical" href="https://rodneylab.com/" >
+    <meta name="theme-color" content="#032539" >
+  </head>
+
+  <body>
+    <main>
+      {}
+  </main>
+  </body>
+</html>"##,
+                raw_html.unwrap()
+            );
             let headings = Some(headings);
             let statistics = Some(statistics_value);
             ParseResults {
-                html,
+                html: Some(html),
                 headings,
                 statistics,
                 errors: None,
@@ -471,7 +502,6 @@ This is a test.";
         let (text_chunk, length) = strip_trailing_sentence_stub(&text);
 
         // asert
-        println!("{}", text.len());
         let last = &text_chunk[length - 1..];
         length <= 1500 && (last == "." || last == "!" || last == "\n" || last == "?")
     }
