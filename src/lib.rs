@@ -53,6 +53,52 @@ fn display_grammar_check_results(
     }
 }
 
+/* Text is trimmed into 1500 character chunks for grammar check.  This function
+ * was written to help truncate each chunk, so that the chunk ends with
+ * complete sentence or two new line characters.
+ */
+fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
+    let end = text.len();
+
+    // early return for trivial cases
+    if end <= 1 {
+        return (text, end);
+    }
+
+    if let Some(value) =
+        text[..].rfind(|val: char| val == '.' || val == '\n' || val == '!' || val == '?')
+    {
+        // last character as a &str
+        let last = &text[value..value + 1];
+        if value == end - 1 && last != "\n" {
+            return strip_trailing_sentence_stub(&text[..end - 1]);
+        }
+
+        // no point trimming right back to the start of the string, so just send everything
+        if value == 0 {
+            return (text, end);
+        }
+
+        match last {
+            /* Could be the end of a sentence, check following character is a
+             * whitespace character to avoid accidently splitting 10.1, for
+             * example.
+             */
+            "." | "!" | "?" => match &text[value + 1..value + 2].find(char::is_whitespace) {
+                Some(_) => (&text[..value + 2], value + 2),
+                None => strip_trailing_sentence_stub(&text[..value]),
+            },
+            "\n" => match &text[value - 1..value].find('\n') {
+                Some(_) => (&text[..value + 1], value + 1),
+                None => strip_trailing_sentence_stub(&text[..value]),
+            },
+            _ => unimplemented!("Should not be possible"),
+        }
+    } else {
+        (text, text.len())
+    }
+}
+
 type CombinedGrammarCheckChunkResults =
     Result<Vec<GrammarCheckResult>, Box<(dyn std::error::Error)>>;
 
@@ -80,13 +126,7 @@ async fn grammar_check(
     .expect("Expected to be able to write to stdout");
 
     while start < plain_text_length {
-        end = if let Some(value) = plain_text[start..end].rfind(". ") {
-            start + value + 1
-        } else {
-            end
-        };
-
-        let chunk = &plain_text[start..end];
+        let (chunk, trimmed_chunk_end) = strip_trailing_sentence_stub(&plain_text[start..end]);
         trace!(
             "Chunk: {chunk}\nlines: {}, characters: {}",
             chunk.split('\n').collect::<Vec<&str>>().len(),
@@ -94,8 +134,9 @@ async fn grammar_check(
         );
         let chunk_results = grammar_checker.check_chunk(chunk);
         result_futures_vec.push(Box::new(chunk_results));
-        start = end;
-        end = cmp::min(plain_text_length, end + chunk_size);
+
+        start += trimmed_chunk_end;
+        end = cmp::min(plain_text_length, start + chunk_size);
         stdout_handle.flush().expect("Unable to flush to stdout");
     }
     let mut combined_grammar_check_results: Vec<GrammarCheckResult> = Vec::new();
@@ -286,8 +327,10 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::{
-        add_word_to_dictionary, load_dictionary, strip_frontmatter, update_html, MarkwriteOptions,
+        add_word_to_dictionary, load_dictionary, strip_frontmatter, strip_trailing_sentence_stub,
+        update_html, MarkwriteOptions,
     };
+    use fake::{faker, Fake};
     use std::{
         collections::HashSet,
         fs::{self, read_to_string, remove_file},
@@ -399,6 +442,38 @@ This is a test.";
 
         // assert
         assert_eq!(result, markdown);
+    }
+
+    #[test]
+    fn strip_trailing_sentencte_stub_truncates_long_text_chunk() {
+        // arrange
+        let paragraphs: Vec<String> = faker::lorem::en::Paragraphs(3..5).fake();
+        let text = paragraphs.join("\n\n");
+
+        // act
+        let (text_chunk, length) = strip_trailing_sentence_stub(&text);
+
+        // asert
+        assert!(length <= 1500);
+        assert!(text_chunk.len() == length);
+        let last = &text_chunk[length - 1..];
+        dbg!("LAST: {last}");
+        assert!(last == "." || last == "!" || last == "\n" || last == "?");
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn strip_trailing_sentencte_stub_truncates_long_text_as_expected() -> bool {
+        // arrange
+        let paragraphs: Vec<String> = faker::lorem::en::Paragraphs(3..5).fake();
+        let text = paragraphs.join("\n\n");
+
+        // act
+        let (text_chunk, length) = strip_trailing_sentence_stub(&text);
+
+        // asert
+        println!("{}", text.len());
+        let last = &text_chunk[length - 1..];
+        length <= 1500 && (last == "." || last == "!" || last == "\n" || last == "?")
     }
 
     #[tokio::test]
