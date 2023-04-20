@@ -11,6 +11,7 @@ use markdown::{
     parse_markdown_to_html, parse_markdown_to_plaintext, Heading, ParseMarkdownOptions,
     TextStatistics,
 };
+use serde::Deserialize;
 use std::{
     cmp,
     collections::HashSet,
@@ -27,6 +28,7 @@ pub struct ParseInputOptions {
     enable_smart_punctuation: Option<bool>,
     search_term: Option<String>,
 }
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct ParseResults {
     html: Option<String>,
@@ -149,49 +151,78 @@ async fn grammar_check(
     display_grammar_check_results(&combined_grammar_check_results, stdout_handle);
 }
 
-pub fn markdown_to_processed_html(markdown: &str, options: &ParseInputOptions) -> ParseResults {
-    match parse_markdown_to_html(markdown) {
-        Ok((html_value, headings, statistics_value)) => {
-            let raw_html = Some(process_html(
-                &html_value,
-                options.canonical_root_url.as_deref(),
-                options.search_term.as_deref(),
-            ));
-            let html = format!(
-                r##"<!DOCTYPE html>
-<html lang="en">
+#[derive(Deserialize, PartialEq, Debug)]
+pub struct Frontmatter {
+    title: Option<String>,
+    description: Option<String>,
+    canonical_url: Option<String>,
+}
+
+fn html_document(main_section_html: &str, frontmatter: &Frontmatter) -> String {
+    let language = "en";
+    let Frontmatter {
+        canonical_url,
+        description,
+        title,
+    } = frontmatter;
+
+    let head_start = format!(
+        r##"<!DOCTYPE html>
+<html lang="{language}">
   <head>
       <meta charset="UTF-8" >
       <meta name="viewport" content="width=device-width, initial-scale=1.0" >
-      <link rel="icon" href="/favicon.ico" sizes="any" >
-      <link rel="icon" href="/icon.svg" type="image/svg+xml" >
-      <link rel="apple-touch-icon" href="/apple-touch-icon.png" >
-      <link rel="manifest" href="/manifest.webmanifest" >
+      <link rel="icon" href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAACXBIWXMAAAEuAAABLgF7cRpNAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAMlQTFRFHHaPHHaPHXePHneQH3iQIXmSInqSI3qTJXuTJ3yUK3+WLYCXL4GYMYOaM4SaNYWbN4acOYidQo2iSpKmS5KmUpeqWpyuXp6vYJ+wYaCxZqOzaKS0bae3bqe3dKu6eK28e6++hbXDhrbDh7bEiLfEirnFi7nGkLzIncTPoMbQocbQosfRp8rUrM3Wrc7XstDZs9HatdLbudXcwtrhx93jyd7k0+Xp1ubr2unt2+rt4u3x5/Dz6vL07/X38fb48/f5+/z9/v7/////WdYCwAAAAAF0Uk5T/hrjB30AAAC8SURBVDjLzdPHEoJADAZgVlAEGyr2gooNbNh7+9//ocwwjqclXsnpn53vkGR3FUXwpcQImEFYC9+tpqQgj1/dx0keAFtdDhzTzJW7Z0ojOeiEyTgC1wQDRJtigQM2xRIHasA7w4ElcGCaVIeUWnKwGgzc2YWC92eTvQQLNkbkXTimNaUJmpGAmlR3wMNigCg+gb3GANGl0OeAWAMvmwPZG3BKc6tuUPQ5IOY0a132aCvfM30SBJ4Ww58VWR+3BzKDC1fSbwAAAABJRU5ErkJggg==" sizes="any" >
+      <link rel="icon" type="image/svg+xml"
+      href="data:image/svg+xml,%3C%3Fxml version='1.0' encoding='UTF-8'%3F%3E%3Csvg width='400' height='400' version='1.1' viewBox='0 0 105.83 105.83' xmlns='http://www.w3.org/2000/svg' xmlns:cc='http://creativecommons.org/ns%23' xmlns:dc='http://purl.org/dc/elements/1.1/' xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns%23'%3E%3Cmetadata%3E%3Crdf:RDF%3E%3Ccc:Work rdf:about=''%3E%3Cdc:format%3Eimage/svg+xml%3C/dc:format%3E%3Cdc:type rdf:resource='http://purl.org/dc/dcmitype/StillImage'/%3E%3Cdc:title/%3E%3C/cc:Work%3E%3C/rdf:RDF%3E%3C/metadata%3E%3Crect x='1.7013' y='1.6799' width='102.47' height='102.47' fill='%231c768f' stroke='%231c768f' stroke-width='3.3641'/%3E%3Cg transform='matrix(2.6253 0 0 2.6253 -51.363 -97.03)' fill='%23fff' opacity='.998' style='font-variant-caps:normal;font-variant-east-asian:normal;font-variant-ligatures:normal;font-variant-numeric:normal' aria-label='R'%3E%3Cpath d='m37.305 56.556q1.4911 0 2.6094-0.35413 1.1183-0.37277 1.8638-1.0251t1.1183-1.547q0.37277-0.91328 0.37277-2.013 0-2.1993-1.4538-3.3549t-4.3987-1.1556h-3.5413v9.4497zm12.637 13.979h-3.8954q-1.1556 0-1.6775-0.89464l-6.2625-9.0396q-0.31685-0.46596-0.68962-0.67098t-1.1183-0.20502h-2.423v10.81h-4.3614v-26.839h7.9027q2.6467 0 4.5478 0.54052 1.9198 0.54052 3.1499 1.547 1.2301 0.98784 1.8079 2.3857 0.59643 1.3979 0.59643 3.1126 0 1.3979-0.42868 2.6094-0.41005 1.2115-1.2115 2.1993-0.78282 0.98784-1.9384 1.7147-1.1556 0.7269-2.628 1.1369 0.80145 0.4846 1.3792 1.3606z' fill='%23fff' style='font-variant-caps:normal;font-variant-east-asian:normal;font-variant-ligatures:normal;font-variant-numeric:normal'/%3E%3C/g%3E%3C/svg%3E" />
+      <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAACXBIWXMAAAakAAAGpAHF3nU5AAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAi5QTFRFHHaQHHaPHXePHneQH3iQIHiRIHmRIXmSInqSI3qTJHuTJXuTJnyUJ3yUKH6VK3+WLYCXLoGYL4GYMIKZMYOaMoOaM4SaNIWbNoacN4acOIedOYidOoiePImfPYqfPoqgQIyhQY2hQo2iRI6jR5CkSJClSZGlSpKmS5KmTJOnTZSnTpSoT5WoUJWoUZapUpeqU5eqVJirVpmsV5msWJqsWpyuW5yuYJ+wYZ+xYaCxYqCyY6GyZKKzZaKzZqOzaKS0aaS1aqW2a6a2bKa3bqe3cam5caq5cqq6dKu6day7d628eK28ea69eq++e6++fbG/frG/f7LAgLLAg7TChLXChrbDiLfEibjFirnFjLrGjrvHj7vIkLzIkbzJkr3Jlb/LlsDLl8DMmMHMmcHMmsLNncTPnsTPoMbQocbQo8jSpMjSpsnTp8rUqMrUqsvVqszVq8zWrM3Wrc7Xrs7XsdDYstDZstHZs9HatdLbttPbt9PbuNTcudXcutbdu9bevdfevtjfv9jfwNngwdngwtrhw9vixdzix93jyN7kyd7kyt/lz+Ln0OPo0ePo0uTp0+Xp1OXq1ubr1+fr2Ofs2ejs2ujt2unt2+rt3Oru3evu3+zv4Ozw4e3w4u3x4+7x5O/y5e/y5/Dz6PH06fL06vL06/P17PT27fT27/X38Pb48fb48/f58/j59Pn69fn69vr79/r7+Pv7+fv8+vz8+/z9+/39/P3+/f7+/v7/////v2EKLQAAAAF0Uk5T92M/v9kAAAQESURBVHja7dzrU41RFAbwVqdO6XJEKIoo5Z5I5JqKJMo1IpJuFApFEt0kuSUkl0pEEhXd2/+d+GL0rpPpzOn07Jn1fD7rzG/e2bNn7fXueZ2cSL84CVrQgha0oAUtaEELWtCCFrSgBS1oQQta0IIWNAQ6s/v/+dza2tjwqDw//VBMmDcCOk9NMR9q8+L8dEP/SdvVeIt26PEM3N1r0Q49nt6CYP3QSo1VrdAPPc4uDdAPrdTPVJN+aKXq/DREq66NGqLVYKyGaDV6UEO0GovXEK3612mIVp2+M4nujjEk8fDZgpqW4cnVpTOJ/mTtt25rjt75MYl6FyL6dzy2V41abbXdQNHjWVxsjZ2EiyYKa7JyNjADo8njEq/eiYwmOsWiy7HRlMn2ID7YaOcKTp2Ajaa5nQy6EBxNR7j9Ax09q4NR+4OjKYNBR6GjlzLoZHQ0tRuLs+HRxcbim/DoE8biSnj0bmNxPTx6vbG4AR4dpiN6mbH4oY5PuhoeHWEsvg6PjjMWZ8Cj0+x3tnUcusRYHA6P/mCoHfZCRwcZaxsJHc2cyM+jo01vjbUR6GimXepyBUebXxlLcwgczWzSKhgcvWrAWFlH2OgF3PwgEhvt90bZry11EDq4hTGPhEGj9/Ryw8c8AkYHVnFk1WLBRS/K7WfNQ2sIFO22o8Lay8QUQkTPiTxW3aesJYdmFt2T+m/OnMu9XNHQqSbLDdMMo21IiStph853Id3Qw6lEuqHbI0g7dOls0g3dFEWkGboj2ZU0Q7cecCfSCj1SG+NKpBN6sDrJl+yb6UcXehJph1avl2iIVl2rwdD9pX9T+bidV38LwUJP6Kfnp7FHlY++yGii5W2c+p4JGk1B3Zz6GDaaNnPXBwdDsdGUwz3qZk9stPsLTn0BG02hgwx6LBobTSe5R/1lHjbaVM+pq52h0RTYw6mTsdGUxKH7Q7DRxN4ufeaGjWZvl9r+vtMxaNrGoUcjsdFUxPZ7Pthoy3tOXYaNpvARTp2AjaZsDt23BBvt/pxTPzFDo2k51zmp09ho7lasUsNrsdGmB5y6zQKNpgC2cyrCRtN+dhISi42mMnZ8sxAbzXdOD12g0XznpI5jo6mQQw+txEZ7v7PzIMQhd5j4zukiNpqy2GUdjY3mOyebByEOukwYzI6ta5yh0ZTKLpAUbDTfOdk4CHHY/emA75z65SxoNCWyCyQLG0232EHIJmw03znZMghxIJq2sgvkNjaarrDqfdhoL7Zz6guCRlvpnJ6aodH8lxxUOjba/Ijd9zZAo8m/ww6DEEejyb+WU1+bPjTzidDXU99lQzLvN3+d+D9bpg2NEkELWtCCFrSgBS1oQQta0IIWtKAFLWhBC1rQgp62/AJFYx36+MHknAAAAABJRU5ErkJggg==" >
       <meta name="theme-color" content="#032539" >
       <style>:root{{--max-width-full:100%;--max-width-wrapper:38rem;--spacing-px:0.0625rem;--spacing-px-2:0.125rem;--spacing-0:0;--spacing-1:0.25rem;--spacing-4:1rem;--spacing-6:1.5rem;--spacing-12:3rem;--spacing-16:4rem;--font-family:"Helvetica Neue", Helvetica, "Segoe UI", Arial, freesans,
-        sans-serif;--font-weight-normal:400;--font-weight-bold:700;--font-weight-black:900;--font-size-root:18px;--font-size-0:0.9rem;--font-size-1:1.125rem;--font-size-2:1.406rem;--font-size-4:2.197rem;--font-size-5:2.747rem;--font-size-6:3.433rem;--line-height-tight:1.3;--line-height-normal:1.5;--line-height-relaxed:1.75;--colour-heading:hsl(200 7% 8%);--color-heading-black:hsl(0 0% 0%);--colour-text:hsl(207 43% 9%)}}*,:after,:before{{box-sizing:border-box}}*{{margin:0}}html{{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;scroll-behavior:smooth}}@media (prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}body{{display:flex;font:1.125rem/1.5"Helvetica Neue",Helvetica,"Segoe UI",Arial,freesans,sans-serif;font:var(--font-size-1)/var(--line-height-normal) var(--font-family);color:hsl(207 43% 9%);color:var(--colour-text);text-rendering:optimizelegibility}}main{{max-width:38rem;max-width:var(--max-width-wrapper);margin-block:4rem;margin-block:var(--spacing-16);margin-inline:auto}}h1{{font-size:2.747rem;font-size:var(--font-size-5)}}h2{{font-size:2.197rem;font-size:var(--font-size-4)}}h3{{font-size:var(--font-size-3)}}h4{{font-size:1.406rem;font-size:var(--font-size-2)}}h1,h2,h3,h4,h5,h6{{margin:3rem 0 1.5rem;margin:var(--spacing-12) var(--spacing-0) var(--spacing-6);line-height:1.3;line-height:var(--line-height-tight)}}h2,h3,h4,h5,h6{{font-weight:700;font-weight:var(--font-weight-bold);color:hsl(200 7% 8%);color:var(--colour-heading)}}p{{line-height:1.75;line-height:var(--line-height-relaxed);margin:0 0 1rem;margin:var(--spacing-0) var(--spacing-0) var(--spacing-4);padding:0;padding:var(--spacing-0)}}p code{{background-color:#e8f1f4;background-color:var(--colour-theme-3-tint-90);border-radius:.125rem;border-radius:var(--spacing-px-2);padding:.0625rem .25rem;padding:var(--spacing-px) var(--spacing-1);-webkit-box-decoration-break:clone;box-decoration-break:clone}}pre{{margin-top:3rem;margin-top:var(--spacing-12);margin-bottom:4rem;margin-bottom:var(--spacing-16);width:100%;width:var(--max-width-full);max-width:100%;max-width:var(--max-width-full);overflow-x:auto}}.heading-anchor{{display:none}}h2:hover .heading-anchor{{display:inline}}</style>
-      <title>Markwrite</title>
-      <meta name="description" content="Markwrite document" >
-      <meta
-        name="robots"
-        content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
-      >
-      <link rel="canonical" href="https://rodneylab.com/" >
-    <meta name="theme-color" content="#032539" >
+        sans-serif;--font-weight-normal:400;--font-weight-bold:700;--font-weight-black:900;--font-size-root:18px;--font-size-0:0.9rem;--font-size-1:1.125rem;--font-size-2:1.406rem;--font-size-4:2.197rem;--font-size-5:2.747rem;--font-size-6:3.433rem;--line-height-tight:1.3;--line-height-normal:1.5;--line-height-relaxed:1.75;--colour-heading:hsl(200 7% 8%);--color-heading-black:hsl(0 0% 0%);--colour-text:hsl(207 43% 9%)}}*,:after,:before{{box-sizing:border-box}}*{{margin:0}}html{{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;scroll-behavior:smooth}}@media (prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}body{{display:flex;font:1.125rem/1.5"Helvetica Neue",Helvetica,"Segoe UI",Arial,freesans,sans-serif;font:var(--font-size-1)/var(--line-height-normal) var(--font-family);color:hsl(207 43% 9%);color:var(--colour-text);text-rendering:optimizelegibility}}main{{max-width:38rem;max-width:var(--max-width-wrapper);margin-block:4rem;margin-block:var(--spacing-16);margin-inline:auto}}h1{{font-size:2.747rem;font-size:var(--font-size-5)}}h2{{font-size:2.197rem;font-size:var(--font-size-4)}}h3{{font-size:var(--font-size-3)}}h4{{font-size:1.406rem;font-size:var(--font-size-2)}}h1,h2,h3,h4,h5,h6{{margin:3rem 0 1.5rem;margin:var(--spacing-12) var(--spacing-0) var(--spacing-6);line-height:1.3;line-height:var(--line-height-tight)}}h2,h3,h4,h5,h6{{font-weight:700;font-weight:var(--font-weight-bold);color:hsl(200 7% 8%);color:var(--colour-heading)}}p{{line-height:1.75;line-height:var(--line-height-relaxed);margin:0 0 1rem;margin:var(--spacing-0) var(--spacing-0) var(--spacing-4);padding:0;padding:var(--spacing-0)}}p code{{background-color:#e8f1f4;background-color:var(--colour-theme-3-tint-90);border-radius:.125rem;border-radius:var(--spacing-px-2);padding:.0625rem .25rem;padding:var(--spacing-px) var(--spacing-1);-webkit-box-decoration-break:clone;box-decoration-break:clone}}pre{{margin-top:3rem;margin-top:var(--spacing-12);margin-bottom:4rem;margin-bottom:var(--spacing-16);width:100%;width:var(--max-width-full);max-width:100%;max-width:var(--max-width-full);overflow-x:auto}}.heading-anchor{{display:none}}h2:hover .heading-anchor{{display:inline}}</style> "##
+    );
+    let title_meta = match title {
+        Some(value) => format!("<title>{value}</title>"),
+        None => "<title>Markwrite Document</title>".to_string(),
+    };
+    let description_meta = match description {
+        Some(value) => format!("<meta name=\"description\" content=\"{value}\" >\n"),
+        None => String::new(),
+    };
+    let canonical_meta = match canonical_url {
+        Some(value) => format!("<link rel=\"canonical\" href=\"{value}\" >\n"),
+        None => String::new(),
+    };
+
+    format!(
+        "{head_start}\n{title_meta}\n{description_meta}\n{canonical_meta}
   </head>
 
   <body>
     <main>
-      {}
+      {main_section_html}
   </main>
   </body>
-</html>"##,
-                raw_html.unwrap()
+</html>",
+    )
+}
+
+pub fn markdown_to_processed_html(
+    markdown: &str,
+    frontmatter: &Frontmatter,
+    options: &ParseInputOptions,
+) -> ParseResults {
+    match parse_markdown_to_html(markdown) {
+        Ok((html_value, headings, statistics_value)) => {
+            let main_section_html = process_html(
+                &html_value,
+                options.canonical_root_url.as_deref(),
+                options.search_term.as_deref(),
             );
+            let html = Some(html_document(&main_section_html, frontmatter));
             let headings = Some(headings);
             let statistics = Some(statistics_value);
             ParseResults {
-                html: Some(html),
+                html,
                 headings,
                 statistics,
                 errors: None,
@@ -263,25 +294,25 @@ pub fn load_dictionary<P: AsRef<Path>>(
     });
 }
 
-fn strip_frontmatter(input: &str) -> &str {
+fn strip_frontmatter(input: &str) -> (Option<&str>, &str) {
     let mut lines = input.lines();
     if let Some(first_line) = lines.next() {
         if first_line.trim_end() != "---" {
-            return input;
+            return (None, input);
         };
 
         let rest = match input.split_once('\n') {
             Some((_first_line, rest)) => rest,
             None => {
-                return input;
+                return (None, input);
             }
         };
         return match rest.split_once("\n---") {
-            Some((_frontmatter, body)) => body.trim(),
-            None => input,
+            Some((frontmatter, body)) => (Some(frontmatter.trim()), body.trim()),
+            None => (None, input),
         };
     }
-    input
+    (None, input)
 }
 
 #[derive(Default)]
@@ -316,10 +347,25 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
         Err(error) => return Err(error.into()),
     };
 
-    let markdown = strip_frontmatter(&markdown);
+    let (frontmatter_yaml, markdown) = strip_frontmatter(&markdown);
+    let frontmatter = match frontmatter_yaml {
+        Some(value) => match serde_yaml::from_str(value) {
+            Ok(frontmatter_value) => frontmatter_value,
+            Err(_) => Frontmatter {
+                title: None,
+                description: None,
+                canonical_url: None,
+            },
+        },
+        None => Frontmatter {
+            title: None,
+            description: None,
+            canonical_url: None,
+        },
+    };
     let ParseResults {
         html, statistics, ..
-    } = markdown_to_processed_html(markdown, &options);
+    } = markdown_to_processed_html(markdown, &frontmatter, &options);
     let word_count = if let Some(value) = statistics {
         value.word_count()
     } else {
@@ -381,7 +427,7 @@ title: Test Document
 This is a test.";
 
         // act
-        let result = strip_frontmatter(markdown);
+        let (_, result) = strip_frontmatter(markdown);
 
         // assert
         let expected_result = "# Test
@@ -469,7 +515,7 @@ This is a test.";
 This is a test.";
 
         // act
-        let result = strip_frontmatter(markdown);
+        let (_, result) = strip_frontmatter(markdown);
 
         // assert
         assert_eq!(result, markdown);
@@ -529,7 +575,7 @@ This is a test.";
 
         // assert
         let html = read_to_string(html_path).expect("Unable to read generated HTML");
-        let expected_result = "<h1 id=\"test\">Test</h1>\n<p>This is a test.</p>\n";
+        let expected_result = "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n      <meta charset=\"UTF-8\" >\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" >\n      <link rel=\"icon\" href=\"data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAACXBIWXMAAAEuAAABLgF7cRpNAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAMlQTFRFHHaPHHaPHXePHneQH3iQIXmSInqSI3qTJXuTJ3yUK3+WLYCXL4GYMYOaM4SaNYWbN4acOYidQo2iSpKmS5KmUpeqWpyuXp6vYJ+wYaCxZqOzaKS0bae3bqe3dKu6eK28e6++hbXDhrbDh7bEiLfEirnFi7nGkLzIncTPoMbQocbQosfRp8rUrM3Wrc7XstDZs9HatdLbudXcwtrhx93jyd7k0+Xp1ubr2unt2+rt4u3x5/Dz6vL07/X38fb48/f5+/z9/v7/////WdYCwAAAAAF0Uk5T/hrjB30AAAC8SURBVDjLzdPHEoJADAZgVlAEGyr2gooNbNh7+9//ocwwjqclXsnpn53vkGR3FUXwpcQImEFYC9+tpqQgj1/dx0keAFtdDhzTzJW7Z0ojOeiEyTgC1wQDRJtigQM2xRIHasA7w4ElcGCaVIeUWnKwGgzc2YWC92eTvQQLNkbkXTimNaUJmpGAmlR3wMNigCg+gb3GANGl0OeAWAMvmwPZG3BKc6tuUPQ5IOY0a132aCvfM30SBJ4Ww58VWR+3BzKDC1fSbwAAAABJRU5ErkJggg==\" sizes=\"any\" >\n      <link rel=\"icon\" type=\"image/svg+xml\"\n      href=\"data:image/svg+xml,%3C%3Fxml version='1.0' encoding='UTF-8'%3F%3E%3Csvg width='400' height='400' version='1.1' viewBox='0 0 105.83 105.83' xmlns='http://www.w3.org/2000/svg' xmlns:cc='http://creativecommons.org/ns%23' xmlns:dc='http://purl.org/dc/elements/1.1/' xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns%23'%3E%3Cmetadata%3E%3Crdf:RDF%3E%3Ccc:Work rdf:about=''%3E%3Cdc:format%3Eimage/svg+xml%3C/dc:format%3E%3Cdc:type rdf:resource='http://purl.org/dc/dcmitype/StillImage'/%3E%3Cdc:title/%3E%3C/cc:Work%3E%3C/rdf:RDF%3E%3C/metadata%3E%3Crect x='1.7013' y='1.6799' width='102.47' height='102.47' fill='%231c768f' stroke='%231c768f' stroke-width='3.3641'/%3E%3Cg transform='matrix(2.6253 0 0 2.6253 -51.363 -97.03)' fill='%23fff' opacity='.998' style='font-variant-caps:normal;font-variant-east-asian:normal;font-variant-ligatures:normal;font-variant-numeric:normal' aria-label='R'%3E%3Cpath d='m37.305 56.556q1.4911 0 2.6094-0.35413 1.1183-0.37277 1.8638-1.0251t1.1183-1.547q0.37277-0.91328 0.37277-2.013 0-2.1993-1.4538-3.3549t-4.3987-1.1556h-3.5413v9.4497zm12.637 13.979h-3.8954q-1.1556 0-1.6775-0.89464l-6.2625-9.0396q-0.31685-0.46596-0.68962-0.67098t-1.1183-0.20502h-2.423v10.81h-4.3614v-26.839h7.9027q2.6467 0 4.5478 0.54052 1.9198 0.54052 3.1499 1.547 1.2301 0.98784 1.8079 2.3857 0.59643 1.3979 0.59643 3.1126 0 1.3979-0.42868 2.6094-0.41005 1.2115-1.2115 2.1993-0.78282 0.98784-1.9384 1.7147-1.1556 0.7269-2.628 1.1369 0.80145 0.4846 1.3792 1.3606z' fill='%23fff' style='font-variant-caps:normal;font-variant-east-asian:normal;font-variant-ligatures:normal;font-variant-numeric:normal'/%3E%3C/g%3E%3C/svg%3E\" />\n      <link rel=\"apple-touch-icon\" href=\"data:image/png;base64,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\" >\n      <meta name=\"theme-color\" content=\"#032539\" >\n      <style>:root{--max-width-full:100%;--max-width-wrapper:38rem;--spacing-px:0.0625rem;--spacing-px-2:0.125rem;--spacing-0:0;--spacing-1:0.25rem;--spacing-4:1rem;--spacing-6:1.5rem;--spacing-12:3rem;--spacing-16:4rem;--font-family:\"Helvetica Neue\", Helvetica, \"Segoe UI\", Arial, freesans,\n        sans-serif;--font-weight-normal:400;--font-weight-bold:700;--font-weight-black:900;--font-size-root:18px;--font-size-0:0.9rem;--font-size-1:1.125rem;--font-size-2:1.406rem;--font-size-4:2.197rem;--font-size-5:2.747rem;--font-size-6:3.433rem;--line-height-tight:1.3;--line-height-normal:1.5;--line-height-relaxed:1.75;--colour-heading:hsl(200 7% 8%);--color-heading-black:hsl(0 0% 0%);--colour-text:hsl(207 43% 9%)}*,:after,:before{box-sizing:border-box}*{margin:0}html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}body{display:flex;font:1.125rem/1.5\"Helvetica Neue\",Helvetica,\"Segoe UI\",Arial,freesans,sans-serif;font:var(--font-size-1)/var(--line-height-normal) var(--font-family);color:hsl(207 43% 9%);color:var(--colour-text);text-rendering:optimizelegibility}main{max-width:38rem;max-width:var(--max-width-wrapper);margin-block:4rem;margin-block:var(--spacing-16);margin-inline:auto}h1{font-size:2.747rem;font-size:var(--font-size-5)}h2{font-size:2.197rem;font-size:var(--font-size-4)}h3{font-size:var(--font-size-3)}h4{font-size:1.406rem;font-size:var(--font-size-2)}h1,h2,h3,h4,h5,h6{margin:3rem 0 1.5rem;margin:var(--spacing-12) var(--spacing-0) var(--spacing-6);line-height:1.3;line-height:var(--line-height-tight)}h2,h3,h4,h5,h6{font-weight:700;font-weight:var(--font-weight-bold);color:hsl(200 7% 8%);color:var(--colour-heading)}p{line-height:1.75;line-height:var(--line-height-relaxed);margin:0 0 1rem;margin:var(--spacing-0) var(--spacing-0) var(--spacing-4);padding:0;padding:var(--spacing-0)}p code{background-color:#e8f1f4;background-color:var(--colour-theme-3-tint-90);border-radius:.125rem;border-radius:var(--spacing-px-2);padding:.0625rem .25rem;padding:var(--spacing-px) var(--spacing-1);-webkit-box-decoration-break:clone;box-decoration-break:clone}pre{margin-top:3rem;margin-top:var(--spacing-12);margin-bottom:4rem;margin-bottom:var(--spacing-16);width:100%;width:var(--max-width-full);max-width:100%;max-width:var(--max-width-full);overflow-x:auto}.heading-anchor{display:none}h2:hover .heading-anchor{display:inline}</style> \n<title>Test Document</title>\n\n\n  </head>\n\n  <body>\n    <main>\n      <h1 id=\"test\">Test</h1>\n<p>This is a test.</p>\n\n  </main>\n  </body>\n</html>";
         assert_eq!(html, expected_result);
 
         // cleanup
