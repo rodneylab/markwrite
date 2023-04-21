@@ -1,17 +1,34 @@
 use log::trace;
+use owo_colors::{colors::BrightBlue, OwoColorize};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub struct GrammarCheckResult {
+    context_length: u32,
+    context_offset: u32,
     text: String,
     rule: String,
     replacements: Vec<String>,
 }
 
 impl GrammarCheckResult {
-    pub fn text(&self) -> &str {
-        &self.text
+    pub fn context(&self) -> String {
+        let highlight_start: usize = self
+            .context_offset
+            .try_into()
+            .expect("Error forming highlight string: unable to convert integer type");
+        let highlight_end: usize = highlight_start
+            + <u32 as TryInto<usize>>::try_into(self.context_length)
+                .expect("Error forming highlight string: unable to convert integer type");
+        format!(
+            "{}{}{}",
+            &self.text[..highlight_start],
+            &self.text[highlight_start..highlight_end]
+                .to_string()
+                .fg::<BrightBlue>(),
+            &self.text[highlight_end..]
+        )
     }
 
     pub fn rule(&self) -> &str {
@@ -183,7 +200,11 @@ impl<'a> GrammarChecker<'a> {
                 replacements,
                 ..
             } = &results_match;
-            let LanguageToolsCheckResponseMatchContext { text, .. } = context;
+            let LanguageToolsCheckResponseMatchContext {
+                length,
+                offset,
+                text,
+            } = context;
             let LanguageToolsCheckResponseMatchRule { description, .. } = rule;
             let LanguageToolsCheckResponseMatchType { type_name, .. } = match_type;
             let mut replacements_vec: Vec<&str> = Vec::new();
@@ -206,6 +227,8 @@ impl<'a> GrammarChecker<'a> {
                 &serde_json::to_string_pretty(&results_match).unwrap()
             );
             results.push(GrammarCheckResult {
+                context_length: *length,
+                context_offset: *offset,
                 text: text.to_string(),
                 rule: description.to_string(),
                 replacements: replacements_vec.iter().map(|val| val.to_string()).collect(),

@@ -43,7 +43,7 @@ fn display_grammar_check_results(
     stdout_handle: &mut impl Write,
 ) {
     for result in results {
-        writeln!(stdout_handle, "\nText: {}", result.text())
+        writeln!(stdout_handle, "\nText: {}", result.context())
             .expect("Expected to be able to write to stdout");
         writeln!(stdout_handle, "Rule: {}", result.rule())
             .expect("Expected to be able to write to stdout");
