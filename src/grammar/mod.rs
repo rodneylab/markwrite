@@ -1,5 +1,8 @@
 use log::trace;
-use owo_colors::{colors::BrightBlue, OwoColorize};
+use owo_colors::{
+    colors::{BrightBlue, BrightCyan, White},
+    OwoColorize,
+};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,19 +10,26 @@ use std::collections::HashMap;
 pub struct GrammarCheckResult {
     context_length: u32,
     context_offset: u32,
+    message: String,
+    sentence: String,
+    short_message: String,
     text: String,
-    rule: String,
     replacements: Vec<String>,
 }
 
 impl GrammarCheckResult {
     pub fn context(&self) -> String {
-        let highlight_start: usize = self
-            .context_offset
+        let GrammarCheckResult {
+            context_length,
+            context_offset,
+            ..
+        } = &self;
+
+        let highlight_start: usize = (*context_offset)
             .try_into()
             .expect("Error forming highlight string: unable to convert integer type");
         let highlight_end: usize = highlight_start
-            + <u32 as TryInto<usize>>::try_into(self.context_length)
+            + <u32 as TryInto<usize>>::try_into(*context_length)
                 .expect("Error forming highlight string: unable to convert integer type");
         format!(
             "{}{}{}",
@@ -27,16 +37,39 @@ impl GrammarCheckResult {
             &self.text[highlight_start..highlight_end]
                 .to_string()
                 .fg::<BrightBlue>(),
-            &self.text[highlight_end..]
+            &self.text[highlight_end..],
         )
     }
 
-    pub fn rule(&self) -> &str {
-        &self.rule
+    pub fn message(&self) -> &str {
+        &self.message
     }
 
-    pub fn replacements_string(&self) -> String {
-        self.replacements.join(", ")
+    pub fn replacements_string(&self) -> Option<String> {
+        if self.replacements.is_empty() {
+            None
+        } else {
+            Some(
+                self.replacements
+                    .iter()
+                    .map(|val| {
+                        format!(
+                            "        {} {}\n",
+                            "-".to_string().fg::<White>(),
+                            val.to_string().fg::<BrightCyan>()
+                        )
+                    })
+                    .collect::<String>(),
+            )
+        }
+    }
+
+    pub fn sentence(&self) -> &str {
+        &self.sentence
+    }
+
+    pub fn short_message(&self) -> &str {
+        &self.short_message
     }
 }
 
@@ -195,9 +228,10 @@ impl<'a> GrammarChecker<'a> {
         for results_match in matches {
             let LanguageToolsCheckResponseMatch {
                 context,
-                rule,
-                match_type,
+                message,
                 replacements,
+                sentence,
+                short_message,
                 ..
             } = &results_match;
             let LanguageToolsCheckResponseMatchContext {
@@ -205,23 +239,18 @@ impl<'a> GrammarChecker<'a> {
                 offset,
                 text,
             } = context;
-            let LanguageToolsCheckResponseMatchRule { description, .. } = rule;
-            let LanguageToolsCheckResponseMatchType { type_name, .. } = match_type;
-            let mut replacements_vec: Vec<&str> = Vec::new();
-            if type_name == "UnknownWord" {
-                let replacements = if replacements.len() < 5 {
-                    replacements
-                } else {
-                    &replacements[0..5]
-                };
-                replacements_vec = replacements
-                    .iter()
-                    .map(|val| {
-                        let LanguageToolsCheckResponseMatchReplacement { value } = val;
-                        &value[..]
-                    })
-                    .collect::<Vec<&str>>();
+            let replacements = if replacements.len() < 5 {
+                replacements
+            } else {
+                &replacements[0..5]
             };
+            let replacements_vec = replacements
+                .iter()
+                .map(|val| {
+                    let LanguageToolsCheckResponseMatchReplacement { value } = val;
+                    &value[..]
+                })
+                .collect::<Vec<&str>>();
             trace!(
                 "Match: {}",
                 &serde_json::to_string_pretty(&results_match).unwrap()
@@ -229,9 +258,11 @@ impl<'a> GrammarChecker<'a> {
             results.push(GrammarCheckResult {
                 context_length: *length,
                 context_offset: *offset,
+                message: message.to_string(),
+                short_message: short_message.to_string(),
                 text: text.to_string(),
-                rule: description.to_string(),
                 replacements: replacements_vec.iter().map(|val| val.to_string()).collect(),
+                sentence: sentence.to_string(),
             });
         }
         trace!(
