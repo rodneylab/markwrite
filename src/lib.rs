@@ -430,10 +430,16 @@ mod tests {
         update_html, MarkwriteOptions,
     };
     use fake::{faker, Fake};
-    use html5ever::{driver::ParseOpts, parse_document, tendril::TendrilSink};
-    use markup5ever_rcdom::RcDom;
+    use html5ever::{
+        driver::ParseOpts,
+        local_name, namespace_url, ns, parse_document,
+        tendril::{fmt::UTF8, Tendril, TendrilSink},
+        QualName,
+    };
+    use markup5ever_rcdom::{NodeData, RcDom};
     use std::{
         collections::HashSet,
+        default::Default,
         fs::{self, read_to_string, remove_file, File},
         io::{self, BufWriter},
         path::Path,
@@ -581,7 +587,7 @@ This is a test.";
         // arrange
         let mut dictionary = HashSet::new();
         let markdown_path = Path::new("./fixtures/file.md");
-        let html_path = Path::new("./fixtures/file.html");
+        let html_path = Path::new("./fixtures/file_a.html");
         let stdout = io::stdout();
         let mut handle = io::BufWriter::new(stdout);
         let options = MarkwriteOptions::default();
@@ -605,6 +611,59 @@ This is a test.";
             .expect("Error parsing generated HTML file");
 
         assert_eq!(parse_result.errors.len(), 0);
+
+        // cleanup
+        remove_file(html_path).expect("Unable to delete HTML output in cleanup");
+    }
+
+    #[tokio::test]
+    async fn update_html_output_has_expected_tags_set() {
+        // arrange
+        let mut dictionary = HashSet::new();
+        let markdown_path = Path::new("./fixtures/file.md");
+        let html_path = Path::new("./fixtures/file_b.html");
+        let stdout = io::stdout();
+        let mut handle = io::BufWriter::new(stdout);
+        let options = MarkwriteOptions::default();
+
+        // act
+        update_html(
+            &markdown_path,
+            &html_path,
+            &mut dictionary,
+            &options,
+            &mut handle,
+        )
+        .await
+        .expect("Error calling update_html");
+
+        // assert
+        let mut html_file = File::open(&html_path).unwrap();
+        let parse_result = parse_document(RcDom::default(), Default::default())
+            .from_utf8()
+            .read_from(&mut html_file)
+            .expect("Error parsing generated HTML file");
+
+        let document_nodes = parse_result.document.children.borrow();
+        let mut document_nodes_iterator = document_nodes.iter();
+        let doctype_node = document_nodes_iterator.next().unwrap();
+
+        // check DOCTYPE element
+        let NodeData::Doctype { ref name, .. } = doctype_node.data else {unimplemented!("Expected DOCTYPE element to exist")};
+        assert_eq!(name, &Tendril::<UTF8>::from_slice("html"));
+
+        // check html element
+        let html_node = document_nodes_iterator.next().unwrap();
+        let NodeData::Element { ref attrs, ref name,.. } = html_node.data else {unimplemented!("Expected html element to exist")};
+        assert_eq!(name, &QualName::new(None, ns!(html), local_name!("html")));
+
+        // check html lang is set
+        let mut attrs = attrs.borrow_mut();
+        let lang = match attrs.iter_mut().find(|val| &*val.name.local == "lang") {
+            Some(value) => &value.value,
+            None => unimplemented!("Expected lang attribute to be set on html element"),
+        };
+        assert_eq!(lang, &Tendril::<UTF8>::from_slice("en"));
 
         // cleanup
         remove_file(html_path).expect("Unable to delete HTML output in cleanup");
