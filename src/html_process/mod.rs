@@ -204,9 +204,16 @@ impl<'a> Builder<'a> {
         let mut replacement_nodes = Vec::new();
         if let NodeData::Text { ref contents, .. } = child.data {
             let search_pattern: Vec<&str> = self.search_term?.split(' ').collect();
-            let ac = AhoCorasickBuilder::new()
+            let ac = match AhoCorasickBuilder::new()
                 .ascii_case_insensitive(true)
-                .build(search_pattern);
+                .build(search_pattern)
+            {
+                Ok(value) => value,
+                // todo(rodneylab): add more robust error handling
+                Err(_) => {
+                    return None;
+                }
+            };
             let mut matches = vec![];
             let search_content = contents.borrow();
             for search_term_match in ac.find_iter(&search_content[..]) {
