@@ -9,7 +9,8 @@
   markwrite
 </h1>
 
-CLI tool intended to run in the background generating HTML each time a watched Markdown file is saved.
+CLI tool intended to run in the background generating HTML each time a watched
+Markdown file is saved.
 
 Features:
 
@@ -17,8 +18,7 @@ Features:
 - adds pretty punctuation
 - uses html5ever for HTML manipulation and pulldown-cmark for Markdown parsing
 
-> **Warning**
-> 🚧 Work in progress
+> **Warning** 🚧 Work in progress
 
 ## 🗺️ Roadmap
 

@@ -1,0 +1,1 @@
+(()=>{const t="ws://localhost:8090/ws";let e=new WebSocket(t);e.addEventListener("close",()=>{const s=Math.round(30);let n=0;const o=()=>{if(n+=1,n>s){console.error("Could not reconnect to the dev server.");return}e=new WebSocket(t),e.addEventListener("error",()=>{setTimeout(o,100)}),e.addEventListener("open",()=>{location.reload()})};o()})})();

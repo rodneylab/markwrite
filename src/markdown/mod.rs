@@ -259,7 +259,6 @@ where
     I: Iterator<Item = Event<'a>>,
     W: StrWrite,
 {
-    #[allow(unused)]
     fn new(
         iter: I,
         writer: W,
@@ -278,7 +277,6 @@ where
         }
     }
 
-    #[allow(unused)]
     /// Writes a new line.
     fn write_newline(&mut self) -> io::Result<()> {
         self.end_newline = true;
@@ -301,7 +299,6 @@ where
         Ok(())
     }
 
-    #[allow(unused)]
     fn run(mut self) -> io::Result<()> {
         while let Some(event) = self.iter.next() {
             match event {
@@ -360,7 +357,6 @@ where
         Ok(())
     }
 
-    #[allow(unused)]
     /// Handles the start of an HTML tag.
     fn start_tag(&mut self, tag: Tag) -> io::Result<()> {
         match tag {
@@ -392,7 +388,6 @@ where
         }
     }
 
-    #[allow(unused)]
     fn end_tag(&mut self, tag: Tag) -> io::Result<()> {
         match tag {
             Tag::Paragraph => {
@@ -475,7 +470,6 @@ impl<'a> ParseMarkdownOptions<'a> {
     }
 }
 
-#[allow(unused)]
 pub fn parse_markdown_to_plaintext(markdown: &str, options: ParseMarkdownOptions) -> String {
     let ParseMarkdownOptions {
         canonical_root_url,
