@@ -65,6 +65,35 @@ hello
 }
 
 #[test]
+fn test_parse_markdown_with_image_to_html() {
+    let markdown = r#"
+hello
+=====
+
+First paragraph.
+
+![A nice image]("/nice-image.jpg")
+
+Second paragraph
+"#;
+
+    let result =
+        if let Some((result, _headings, _statistics)) = parse_markdown_to_html(markdown).ok() {
+            result
+        } else {
+            panic!("Result expected");
+        };
+    let expected = String::from(
+        r#"<h1 id="hello">hello</h1>
+<p>First paragraph.</p>
+<p><img src="%22/nice-image.jpg%22" alt="A nice image" /></p>
+<p>Second paragraph</p>
+"#,
+    );
+    assert_eq!(result, expected);
+}
+
+#[test]
 fn test_parse_markdown_to_plaintext() {
     let markdown = "## 🧑🏽‍🍳 Pick of the Month — vanilla-extract";
 
