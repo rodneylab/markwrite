@@ -185,6 +185,7 @@ struct HtmlTemplate<'a> {
     description: Option<&'a str>,
     global_css: &'a str,
     language: &'a str,
+    live_reload_script: &'a str,
     main_section_html: &'a str,
     prism_dark_theme_css: &'a str,
     prism_light_theme_css: &'a str,
@@ -200,6 +201,7 @@ fn html_document(main_section_html: &str, frontmatter: &Frontmatter) -> String {
         description,
         title,
     } = frontmatter;
+    let live_reload_script = &String::from_utf8_lossy(include_bytes!("./resources/live_reload.js"));
     let prism_dark_theme_css =
         &String::from_utf8_lossy(include_bytes!("./resources/prism-one-dark.css"));
     let prism_light_theme_css =
@@ -217,6 +219,7 @@ fn html_document(main_section_html: &str, frontmatter: &Frontmatter) -> String {
         description: description.as_deref(),
         global_css,
         language,
+        live_reload_script,
         main_section_html,
         prism_dark_theme_css,
         prism_light_theme_css,
@@ -609,7 +612,6 @@ This is a test.";
             .from_utf8()
             .read_from(&mut html_file)
             .expect("Error parsing generated HTML file");
-
         assert_eq!(parse_result.errors.len(), 0);
 
         // cleanup
