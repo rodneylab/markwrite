@@ -7,3 +7,44 @@ pub fn relative_url(url: &str) -> bool {
         Err(_) => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::relative_url;
+
+    #[test]
+    fn relative_url_returns_false_for_full_url() {
+        // arrange
+        let url = "https://example.com/home.html";
+
+        // act
+        let result = relative_url(url);
+
+        // assert
+        assert!(!result);
+    }
+
+    #[test]
+    fn relative_url_returns_true_for_relative_url() {
+        // arrange
+        let url = "/home.html";
+
+        // act
+        let result = relative_url(url);
+
+        // assert
+        assert!(result);
+    }
+
+    #[test]
+    fn relative_url_returns_false_for_invalid_url() {
+        // arrange
+        let url = "http://[:::1]";
+
+        // act
+        let result = relative_url(url);
+
+        // assert
+        assert!(!result);
+    }
+}
