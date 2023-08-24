@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use log::trace;
 use owo_colors::{
     colors::{BrightBlue, BrightCyan, White},
@@ -10,7 +7,6 @@ use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug)]
 pub struct GrammarCheckResult {
     context_length: u32,
     context_offset: u32,
