@@ -651,12 +651,21 @@ This is a test.";
         let doctype_node = document_nodes_iterator.next().unwrap();
 
         // check DOCTYPE element
-        let NodeData::Doctype { ref name, .. } = doctype_node.data else {unimplemented!("Expected DOCTYPE element to exist")};
+        let NodeData::Doctype { ref name, .. } = doctype_node.data else {
+            unimplemented!("Expected DOCTYPE element to exist")
+        };
         assert_eq!(name, &Tendril::<UTF8>::from_slice("html"));
 
         // check html element
         let html_node = document_nodes_iterator.next().unwrap();
-        let NodeData::Element { ref attrs, ref name,.. } = html_node.data else {unimplemented!("Expected html element to exist")};
+        let NodeData::Element {
+            ref attrs,
+            ref name,
+            ..
+        } = html_node.data
+        else {
+            unimplemented!("Expected html element to exist")
+        };
         assert_eq!(name, &QualName::new(None, ns!(html), local_name!("html")));
 
         // check html lang is set
