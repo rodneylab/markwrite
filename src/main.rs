@@ -39,7 +39,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
 ) {
     let (tx, rx) = std::sync::mpsc::channel();
 
-    let mut debouncer = new_debouncer(Duration::from_millis(250), None, tx).unwrap();
+    let mut debouncer = new_debouncer(Duration::from_millis(250), tx).unwrap();
 
     debouncer
         .watcher()
