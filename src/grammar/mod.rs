@@ -54,19 +54,9 @@ impl GrammarCheckResult {
             None
         } else {
             Some(
-                //                self.replacements
-                //                    .iter()
-                //                    .map(|val| {
-                //                        format!(
-                //                            "        {} {}\n",
-                //                            "-".to_string().fg::<White>(),
-                //                            val.to_string().fg::<BrightCyan>()
-                //                        )
-                //                    })
-                //                    .collect::<String>(),
                 self.replacements
                     .iter()
-                    .fold(String::new(), |mut output: String, val| {
+                    .fold(String::new(), |mut output, val| {
                         let _ = writeln!(
                             output,
                             "        {} {}",
