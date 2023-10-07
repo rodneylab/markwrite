@@ -8,7 +8,7 @@ use owo_colors::{
 };
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write};
 
 #[derive(Debug)]
 pub struct GrammarCheckResult {
@@ -54,16 +54,27 @@ impl GrammarCheckResult {
             None
         } else {
             Some(
+                //                self.replacements
+                //                    .iter()
+                //                    .map(|val| {
+                //                        format!(
+                //                            "        {} {}\n",
+                //                            "-".to_string().fg::<White>(),
+                //                            val.to_string().fg::<BrightCyan>()
+                //                        )
+                //                    })
+                //                    .collect::<String>(),
                 self.replacements
                     .iter()
-                    .map(|val| {
-                        format!(
-                            "        {} {}\n",
+                    .fold(String::new(), |mut output: String, val| {
+                        let _ = writeln!(
+                            output,
+                            "        {} {}",
                             "-".to_string().fg::<White>(),
-                            val.to_string().fg::<BrightCyan>()
-                        )
-                    })
-                    .collect::<String>(),
+                            val.to_string().fg::<BrightCyan>(),
+                        );
+                        output
+                    }),
             )
         }
     }

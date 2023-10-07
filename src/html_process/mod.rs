@@ -110,11 +110,11 @@ impl<'a> Builder<'a> {
                 .upgrade().expect("a node's parent will be pointed to by its parent (or the root pointer), and will not be dropped");
             let pass_process = self.process_child(&mut node);
             if pass_process {
-                self.adjust_node_attributes(&mut node, &link_rel, &link_target);
-                self.adjust_node_children(&mut node, &mut dom);
+                self.adjust_node_attributes(&node, &link_rel, &link_target);
+                self.adjust_node_children(&node, &mut dom);
                 if self.search_term.is_some() {
                     if let Some(value) =
-                        self.replacement_node(&mut node, &mut dom, &mut already_matched)
+                        self.replacement_node(&node, &mut dom, &mut already_matched)
                     {
                         // node should be a TextNode and so have no children to check so OK to
                         // continue here
@@ -151,7 +151,7 @@ impl<'a> Builder<'a> {
 
     fn adjust_node_attributes(
         &self,
-        child: &mut Handle,
+        child: &Handle,
         link_rel: &Option<StrTendril>,
         link_target: &Option<StrTendril>,
     ) {
@@ -197,7 +197,7 @@ impl<'a> Builder<'a> {
      */
     fn replacement_node(
         &self,
-        child: &mut Handle,
+        child: &Handle,
         dom: &mut RcDom,
         already_matched: &mut bool,
     ) -> Option<Vec<Rc<Node>>> {
@@ -263,7 +263,7 @@ impl<'a> Builder<'a> {
         None
     }
 
-    fn adjust_node_children(&self, child: &mut Handle, dom: &mut RcDom) {
+    fn adjust_node_children(&self, child: &Handle, dom: &mut RcDom) {
         if let NodeData::Element {
             ref name,
             ref attrs,
