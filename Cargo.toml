@@ -5,9 +5,9 @@ authors = ["Rodney Johnson <ask@rodneylab.com>"]
 edition = "2021"
 license = "BSD-3-Clause"
 repository = "https://github.com/rodneylab/markwrite"
-description = "Markdown writing CLI tool"
 # clap-verbosity-flag 2.1 rasises MSRV to 1.70.0
 rust-version = "1.70.0"
+description = "Markdown writing CLI tool"
 
 [lib]
 path = "src/lib.rs"
