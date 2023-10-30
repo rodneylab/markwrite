@@ -34,7 +34,7 @@ notify-debouncer-mini = "0.4.1"
 owo-colors = "3.5.0"
 pulldown-cmark = "0.9.2"
 reqwest = { version = "0.11.22", features = ["json"] }
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.190", features = ["derive"] }
 serde_json = "1.0.107"
 serde_yaml = "0.9.25"
 textwrap = "0.16.0"
@@ -44,7 +44,7 @@ url = "2.4.1"
 [dev-dependencies]
 assert_cmd = "2.0.12"
 assert_fs = "1"
-fake = "2.8"
+fake = "2.9"
 markup5ever_rcdom = "0.2.0"
 predicates = "3.0.3"
 quickcheck = "1.0.3"
