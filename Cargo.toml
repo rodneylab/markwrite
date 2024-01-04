@@ -20,7 +20,7 @@ name = "markwrite"
 aho-corasick = "1.1.2"
 anyhow = "1.0.76"
 askama = "0.12.1"
-clap = { version = "4.4.12", features = ["derive"] }
+clap = { version = "4.4.13", features = ["derive"] }
 clap-verbosity-flag = "2.1.1"
 deunicode = "1.4.2"
 env_logger = "0.10"
