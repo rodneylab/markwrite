@@ -1,7 +1,9 @@
 mod grammar;
 mod html_process;
+mod inline_html;
 mod markdown;
 mod url_utility;
+mod utilities;
 
 use crate::grammar::{GrammarCheckResult, GrammarChecker};
 use crate::html_process::process_html;
