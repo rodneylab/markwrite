@@ -1,9 +1,8 @@
-use crate::grammar::GrammarCheckResult;
+use crate::grammar::CheckResult as GrammarCheckResult;
 
 #[test]
 fn test_context() {
     //arrange
-
     let grammar_check_result = GrammarCheckResult {
         context_length: 4,
         context_offset: 16,

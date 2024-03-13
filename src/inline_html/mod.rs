@@ -180,4 +180,16 @@ mod tests {
             Some(InlineHTMLTagType::Opening(String::from("tool-tip")))
         );
     }
+
+    #[test]
+    pub fn parse_node_returns_none_for_invalid_html_tag() {
+        // arrange
+        let tag = "<tool-tip";
+
+        // act
+        let result = parse_node(tag);
+
+        // assert
+        assert_eq!(result, None);
+    }
 }

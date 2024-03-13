@@ -97,20 +97,20 @@ Second paragraph
 fn test_parse_markdown_to_plaintext() {
     let markdown = "## 🧑🏽‍🍳 Pick of the Month — vanilla-extract";
 
-    let result = parse_markdown_to_plaintext(markdown, ParseMarkdownOptions::default());
+    let result = parse_markdown_to_plaintext(markdown, &ParseMarkdownOptions::default());
     let expected = String::from("🧑🏽\u{200d}🍳 Pick of the Month — vanilla-extract\n");
     assert_eq!(result, expected);
 
     let markdown = "My apple's quite tasty.";
-    let result = parse_markdown_to_plaintext(markdown, ParseMarkdownOptions::default());
+    let result = parse_markdown_to_plaintext(markdown, &ParseMarkdownOptions::default());
     let expected = String::from("My apple’s quite tasty.\n");
     assert_eq!(result, expected);
 
-    let markdown = r#"
+    let markdown = r"
 testing, testing one, two, three, four, five, six, seven, eight, nine,  ten, eleven
-"#;
+";
 
-    let result = parse_markdown_to_plaintext(markdown, ParseMarkdownOptions::default());
+    let result = parse_markdown_to_plaintext(markdown, &ParseMarkdownOptions::default());
     let expected = String::from(
         "testing, testing one, two, three, four, five, six, seven, eight, nine,\nten, eleven\n",
     );
@@ -118,7 +118,7 @@ testing, testing one, two, three, four, five, six, seven, eight, nine,  ten, ele
 
     let markdown =
         r#"<abbr>CLI<tool-tip inert role="tooltip">Command Line Interface</tool-tip></abbr>"#;
-    let result = parse_markdown_to_plaintext(markdown, ParseMarkdownOptions::default());
+    let result = parse_markdown_to_plaintext(markdown, &ParseMarkdownOptions::default());
     let expected = String::from("CLI\n");
     assert_eq!(result, expected);
 }
@@ -129,7 +129,7 @@ pub fn parse_markdown_to_plaintext_applies_canonical_root_url() {
 
     let mut options = ParseMarkdownOptions::default();
     options.canonical_root_url(Some("https://example.com"));
-    let result = parse_markdown_to_plaintext(markdown, options);
+    let result = parse_markdown_to_plaintext(markdown, &options);
     let expected = String::from("Contact us (https://example.com/contact) to find out more.\n");
     assert_eq!(result, expected);
 }
@@ -140,7 +140,7 @@ pub fn parse_markdown_to_plaintext_outputs_relative_urls_when_canonical_root_url
 
     let mut options = ParseMarkdownOptions::default();
     options.canonical_root_url(None);
-    let result = parse_markdown_to_plaintext(markdown, options);
+    let result = parse_markdown_to_plaintext(markdown, &options);
     let expected = String::from("Contact us (/contact) to find out more.\n");
     assert_eq!(result, expected);
 }
