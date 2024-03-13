@@ -34,7 +34,7 @@ use html5ever::{
     interface::tree_builder::{AppendNode, NodeOrText, TreeSink},
     local_name, namespace_url, ns,
     serialize::{serialize, SerializeOpts},
-    tendril::*,
+    tendril::{format_tendril, StrTendril, TendrilSink},
     Attribute, QualName,
 };
 use std::{
@@ -83,6 +83,7 @@ impl<'a> Builder<'a> {
         self
     }
 
+    #[allow(clippy::unused_self)]
     fn process_child(&self, _child: &mut Handle) -> bool {
         true
     }
@@ -118,7 +119,7 @@ impl<'a> Builder<'a> {
                     {
                         // node should be a TextNode and so have no children to check so OK to
                         // continue here
-                        for new_child_node in value.iter() {
+                        for new_child_node in &value {
                             dom.append(&parent, NodeOrText::AppendNode(new_child_node.clone()));
                         }
                         removed.push(node);
@@ -180,7 +181,7 @@ impl<'a> Builder<'a> {
                             attrs.push(Attribute {
                                 name: QualName::new(None, ns!(), local_name!("rel")),
                                 value: link_rel.clone(),
-                            })
+                            });
                         }
                     }
                 }
@@ -204,15 +205,11 @@ impl<'a> Builder<'a> {
         let mut replacement_nodes = Vec::new();
         if let NodeData::Text { ref contents, .. } = child.data {
             let search_pattern: Vec<&str> = self.search_term?.split(' ').collect();
-            let ac = match AhoCorasickBuilder::new()
+            let Ok(ac) = AhoCorasickBuilder::new()
                 .ascii_case_insensitive(true)
                 .build(search_pattern)
-            {
-                Ok(value) => value,
-                // todo(rodneylab): add more robust error handling
-                Err(_) => {
-                    return None;
-                }
+            else {
+                return None;
             };
             let mut matches = vec![];
             let search_content = contents.borrow();
@@ -220,7 +217,7 @@ impl<'a> Builder<'a> {
                 matches.push((search_term_match.start(), search_term_match.end()));
             }
             let mut index: usize = 0;
-            for (start, end) in matches.iter() {
+            for (start, end) in &matches {
                 replacement_nodes.push(Node::new(NodeData::Text {
                     contents: RefCell::new(search_content[index..*start].into()),
                 }));
@@ -256,13 +253,13 @@ impl<'a> Builder<'a> {
             }));
             if replacement_nodes.is_empty() {
                 return None;
-            } else {
-                return Some(replacement_nodes);
             }
+            return Some(replacement_nodes);
         }
         None
     }
 
+    #[allow(clippy::unused_self)]
     fn adjust_node_children(&self, child: &Handle, dom: &mut RcDom) {
         if let NodeData::Element {
             ref name,

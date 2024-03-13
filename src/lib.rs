@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 mod grammar;
 mod html_process;
 mod inline_html;
@@ -5,7 +7,7 @@ mod markdown;
 mod url_utility;
 mod utilities;
 
-use crate::grammar::{GrammarCheckResult, GrammarChecker};
+use crate::grammar::{CheckResult as GrammarCheckResult, Checker as GrammarChecker};
 use crate::html_process::process_html;
 use anyhow::{Context, Result};
 use askama::Template;
@@ -92,7 +94,7 @@ fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
         text[..].rfind(|val: char| val == '.' || val == '\n' || val == '!' || val == '?')
     {
         // last character as a &str
-        let last = &text[value..value + 1];
+        let last = &text[value..=value];
         if value == end - 1 && last != "\n" {
             return strip_trailing_sentence_stub(&text[..end - 1]);
         }
@@ -112,7 +114,7 @@ fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
                 None => strip_trailing_sentence_stub(&text[..value]),
             },
             "\n" => match &text[value - 1..value].find('\n') {
-                Some(_) => (&text[..value + 1], value + 1),
+                Some(_) => (&text[..=value], value + 1),
                 None => strip_trailing_sentence_stub(&text[..value]),
             },
             _ => unreachable!("Should not be possible"),
@@ -125,16 +127,11 @@ fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
 type CombinedGrammarCheckChunkResults =
     Result<Vec<GrammarCheckResult>, Box<(dyn std::error::Error)>>;
 
-async fn grammar_check(
-    markdown: &str,
-    _dictionary: &mut HashSet<String>,
-    path: &str,
-    stdout_handle: &mut impl Write,
-) {
+async fn grammar_check(markdown: &str, path: &str, stdout_handle: &mut impl Write) {
     let grammar_checker = GrammarChecker::new(None);
     let mut markdown_options = ParseMarkdownOptions::default();
     markdown_options.disable_code_block_output(true);
-    let plain_text = parse_markdown_to_plaintext(markdown, markdown_options);
+    let plain_text = parse_markdown_to_plaintext(markdown, &markdown_options);
 
     let mut start: usize = 0;
     let chunk_size = 1500;
@@ -232,6 +229,7 @@ fn html_document(main_section_html: &str, frontmatter: &Frontmatter) -> String {
     html.render().unwrap()
 }
 
+#[must_use]
 pub fn markdown_to_processed_html(
     markdown: &str,
     frontmatter: &Frontmatter,
@@ -276,18 +274,15 @@ fn add_word_to_dictionary<P: AsRef<Path>>(
 ) {
     let dictionary_display_path = dictionary_path.as_ref().display().to_string();
     dictionary.insert(new_word.to_string());
-    let mut dictionary_file = match OpenOptions::new()
+    let Ok(mut dictionary_file) = OpenOptions::new()
         .append(true)
         .create(true)
         .open(dictionary_path)
-    {
-        Ok(value) => value,
-        Err(_) => {
-            writeln!(stdout_handle, "[ INFO ] Unable to create dictionary file.")
-                .expect("Expected to be able to write to stdout");
-            error!("[ ERROR ] Unable to create the dictionary file!");
-            return;
-        }
+    else {
+        writeln!(stdout_handle, "[ INFO ] Unable to create dictionary file.")
+            .expect("Expected to be able to write to stdout");
+        error!("[ ERROR ] Unable to create the dictionary file!");
+        return;
     };
 
     dictionary_file
@@ -298,18 +293,15 @@ fn add_word_to_dictionary<P: AsRef<Path>>(
         .unwrap();
 }
 
-pub fn load_dictionary<P: AsRef<Path>>(
+pub fn load_dictionary<P: AsRef<Path>, S: ::std::hash::BuildHasher>(
     dictionary_path: P,
-    dictionary: &mut HashSet<String>,
+    dictionary: &mut HashSet<String, S>,
     mut stdout_handle: impl Write,
 ) {
-    let dictionary_file = match File::open(dictionary_path) {
-        Ok(value) => value,
-        Err(_) => {
-            writeln!(stdout_handle, "[ INFO ] no dictionary file found.")
-                .expect("Expected to be able to stdout");
-            return;
-        }
+    let Ok(dictionary_file) = File::open(dictionary_path) else {
+        writeln!(stdout_handle, "[ INFO ] no dictionary file found.")
+            .expect("Expected to be able to stdout");
+        return;
     };
 
     let reader = BufReader::new(&dictionary_file);
@@ -327,11 +319,8 @@ fn strip_frontmatter(input: &str) -> (Option<&str>, &str) {
             return (None, input);
         };
 
-        let rest = match input.split_once('\n') {
-            Some((_first_line, rest)) => rest,
-            None => {
-                return (None, input);
-            }
+        let Some((_first_line, rest)) = input.split_once('\n') else {
+            return (None, input);
         };
         return match rest.split_once("\n---") {
             Some((frontmatter, body)) => (Some(frontmatter.trim()), body.trim()),
@@ -347,6 +336,7 @@ pub struct MarkwriteOptions {
 }
 
 impl MarkwriteOptions {
+    #[must_use]
     pub fn check_grammar(&self) -> bool {
         self.check_grammar
     }
@@ -356,10 +346,14 @@ impl MarkwriteOptions {
     }
 }
 
+///
+/// # Errors
+/// Errors if unable to read input file
+/// # Panics
+/// Panics if output path cannot be created
 pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: &P1,
     output_path: &P2,
-    dictionary: &mut HashSet<String>,
     markwrite_options: &MarkwriteOptions,
     stdout_handle: &mut impl Write,
 ) -> Result<(), notify::Error> {
@@ -400,15 +394,14 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
 
     let display_path = path.as_ref().display().to_string();
     if markwrite_options.check_grammar() {
-        grammar_check(markdown, dictionary, &display_path, stdout_handle).await;
+        grammar_check(markdown, &display_path, stdout_handle).await;
     }
 
     let output_display_path = output_path.as_ref().display().to_string();
     match html {
         Some(value) => {
-            let mut outfile = match File::create(output_path) {
-                Ok(value) => value,
-                Err(_) => panic!("[ ERROR ] Unable to create the output file!",),
+            let Ok(mut outfile) = File::create(output_path) else {
+                panic!("[ ERROR ] Unable to create the output file!");
             };
             outfile
                 .write_all(value.as_bytes())
@@ -590,7 +583,6 @@ This is a test.";
     #[tokio::test]
     async fn update_html_writes_parsed_markdown_to_html_file() {
         // arrange
-        let mut dictionary = HashSet::new();
         let markdown_path = Path::new("./fixtures/file.md");
         let html_path = Path::new("./fixtures/file_a.html");
         let stdout = io::stdout();
@@ -598,18 +590,12 @@ This is a test.";
         let options = MarkwriteOptions::default();
 
         // act
-        update_html(
-            &markdown_path,
-            &html_path,
-            &mut dictionary,
-            &options,
-            &mut handle,
-        )
-        .await
-        .expect("Error calling update_html");
+        update_html(&markdown_path, &html_path, &options, &mut handle)
+            .await
+            .expect("Error calling update_html");
 
         // assert
-        let mut html_file = File::open(&html_path).unwrap();
+        let mut html_file = File::open(html_path).unwrap();
         let parse_result = parse_document(RcDom::default(), ParseOpts::default())
             .from_utf8()
             .read_from(&mut html_file)
@@ -623,7 +609,6 @@ This is a test.";
     #[tokio::test]
     async fn update_html_output_has_expected_tags_set() {
         // arrange
-        let mut dictionary = HashSet::new();
         let markdown_path = Path::new("./fixtures/file.md");
         let html_path = Path::new("./fixtures/file_b.html");
         let stdout = io::stdout();
@@ -631,19 +616,13 @@ This is a test.";
         let options = MarkwriteOptions::default();
 
         // act
-        update_html(
-            &markdown_path,
-            &html_path,
-            &mut dictionary,
-            &options,
-            &mut handle,
-        )
-        .await
-        .expect("Error calling update_html");
+        update_html(&markdown_path, &html_path, &options, &mut handle)
+            .await
+            .expect("Error calling update_html");
 
         // assert
-        let mut html_file = File::open(&html_path).unwrap();
-        let parse_result = parse_document(RcDom::default(), Default::default())
+        let mut html_file = File::open(html_path).unwrap();
+        let parse_result = parse_document(RcDom::default(), ParseOpts::default())
             .from_utf8()
             .read_from(&mut html_file)
             .expect("Error parsing generated HTML file");

@@ -19,7 +19,9 @@ use textwrap::wrap;
 
 /// Reading time in minutes from number of words, assumes 180 wpm reading speed from a device
 fn reading_time_from_words(words: u32) -> u32 {
-    let result = (words as f64 / 180.0).round();
+    let result = (f64::from(words) / 180.0).round();
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
     if result > 0.0 {
         result as u32
     } else {
@@ -161,7 +163,7 @@ pub fn parse_markdown_to_html(
     });
 
     match html::write_html(Cursor::new(&mut bytes), parser) {
-        Ok(_) => Ok((
+        Ok(()) => Ok((
             String::from_utf8_lossy(&bytes).to_string(),
             headings,
             statistics,
@@ -232,7 +234,7 @@ where
     #[inline]
     fn write(&mut self) -> io::Result<()> {
         let lines = wrap(&self.current_line, self.line_length);
-        for line in lines.iter() {
+        for line in &lines {
             self.writer.write_str(line)?;
             self.writer.write_str("\n")?;
         }
@@ -266,11 +268,7 @@ where
                 End(tag) => {
                     self.end_tag(tag)?;
                 }
-                Text(text) => {
-                    self.current_line.push_str(&text);
-                    self.end_newline = text.ends_with('\n');
-                }
-                Code(text) => {
+                Text(text) | Code(text) => {
                     self.current_line.push_str(&text);
                     self.end_newline = text.ends_with('\n');
                 }
@@ -285,7 +283,7 @@ where
                                 if let InlineHtml(nested_inline_html) = html_event {
                                     match parse_inline_html_node(&nested_inline_html) {
                                         Some(InlineHTMLTagType::Opening(open_tag_value)) => {
-                                            open_tags.push(open_tag_value)
+                                            open_tags.push(open_tag_value);
                                         }
                                         Some(InlineHTMLTagType::Closing(closing_tag_value)) => {
                                             if let Some(popped_value) = open_tags.pop() {
@@ -316,10 +314,10 @@ where
     fn start_tag(&mut self, tag: Tag) -> io::Result<()> {
         match tag {
             Tag::Paragraph => {
-                if !self.end_newline {
-                    self.write()
-                } else {
+                if self.end_newline {
                     Ok(())
+                } else {
+                    self.write()
                 }
             }
             Tag::Heading { .. } => {
@@ -430,12 +428,12 @@ impl<'a> ParseMarkdownOptions<'a> {
     }
 }
 
-pub fn parse_markdown_to_plaintext(markdown: &str, options: ParseMarkdownOptions) -> String {
+pub fn parse_markdown_to_plaintext(markdown: &str, options: &ParseMarkdownOptions) -> String {
     let ParseMarkdownOptions {
         canonical_root_url,
         enable_smart_punctuation,
         skip_code_blocks,
-    } = options;
+    } = *options;
 
     let mut parser_options = Options::empty();
     if enable_smart_punctuation {

@@ -33,7 +33,6 @@ struct Cli {
 async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     path: P1,
     output_path: P2,
-    dictionary: &mut HashSet<String>,
     options: &markwrite::MarkwriteOptions,
     stdout_handle: &mut impl Write,
 ) {
@@ -52,7 +51,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
                 trace!("{:?}", event);
 
                 // Editor may temporarily rename the input file while saving it
-                if markwrite::update_html(&path, &output_path, dictionary, options, stdout_handle)
+                if markwrite::update_html(&path, &output_path, options, stdout_handle)
                     .await
                     .is_err()
                 {
@@ -111,13 +110,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(stdout_handle, "[ INFO ] waiting for file changes.")?;
     stdout_handle.flush()?;
 
-    debounce_watch(
-        path,
-        output_path,
-        &mut dictionary,
-        &options,
-        &mut stdout_handle,
-    )
-    .await;
+    debounce_watch(path, output_path, &options, &mut stdout_handle).await;
     Ok(())
 }

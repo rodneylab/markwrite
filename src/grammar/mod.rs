@@ -8,10 +8,10 @@ use owo_colors::{
 };
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Write};
+use std::{collections::HashMap, fmt::Write, string::String};
 
 #[derive(Debug)]
-pub struct GrammarCheckResult {
+pub struct CheckResult {
     context_length: u32,
     context_offset: u32,
     message: String,
@@ -21,9 +21,9 @@ pub struct GrammarCheckResult {
     replacements: Vec<String>,
 }
 
-impl GrammarCheckResult {
+impl CheckResult {
     pub fn context(&self) -> String {
-        let GrammarCheckResult {
+        let CheckResult {
             context_length,
             context_offset,
             ..
@@ -207,22 +207,22 @@ struct LanguageToolsCheckResponse {
     sentence_ranges: Vec<Vec<u32>>,
 }
 
-pub struct GrammarChecker<'a> {
+pub struct Checker<'a> {
     url: &'a str,
 }
 
-impl<'a> GrammarChecker<'a> {
-    pub fn new(url: Option<&str>) -> GrammarChecker {
+impl<'a> Checker<'a> {
+    pub fn new(url: Option<&str>) -> Checker {
         let actual_url: &str = match url {
             Some(value) => value,
             None => "https://api.languagetoolplus.com/v2/check",
         };
-        GrammarChecker { url: actual_url }
+        Checker { url: actual_url }
     }
 
     fn process_language_tools_results(
         response: &LanguageToolsCheckResponse,
-        results: &mut Vec<GrammarCheckResult>,
+        results: &mut Vec<CheckResult>,
     ) {
         let LanguageToolsCheckResponse {
             matches,
@@ -260,13 +260,16 @@ impl<'a> GrammarChecker<'a> {
                 "Match: {}",
                 &serde_json::to_string_pretty(&results_match).unwrap()
             );
-            results.push(GrammarCheckResult {
+            results.push(CheckResult {
                 context_length: *length,
                 context_offset: *offset,
                 message: message.to_string(),
                 short_message: short_message.to_string(),
                 text: text.to_string(),
-                replacements: replacements_vec.iter().map(|val| val.to_string()).collect(),
+                replacements: replacements_vec
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect(),
                 sentence: sentence.to_string(),
             });
         }
@@ -279,7 +282,7 @@ impl<'a> GrammarChecker<'a> {
     pub async fn check_chunk(
         &self,
         text: &str,
-    ) -> Result<Vec<GrammarCheckResult>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<CheckResult>, Box<dyn std::error::Error>> {
         let mut results = Vec::new();
         let client = reqwest::Client::new();
         let mut headers = HeaderMap::new();
@@ -304,23 +307,16 @@ impl<'a> GrammarChecker<'a> {
                 Err(error) => {
                     if !error.is_request() && error.is_body() {
                         eprintln!(
-                        "[ ERROR ] error receiving response from remote grammar server response: {:?}.",
-                        error
+                        "[ ERROR ] error receiving response from remote grammar server response: {error:?}.",
                     );
                         return Err(error.into());
                     }
-                    eprintln!(
-                        "[ ERROR ] error parsing remote grammar server response: {:?}.",
-                        error
-                    );
+                    eprintln!("[ ERROR ] error parsing remote grammar server response: {error:?}.",);
                     return Err(error.into());
                 }
             },
             Err(error) => {
-                eprintln!(
-                    "[ ERROR ] no response from remote grammar check server: {:?}.",
-                    error
-                );
+                eprintln!("[ ERROR ] no response from remote grammar check server: {error:?}.",);
                 return Err(error.into());
             }
         };
