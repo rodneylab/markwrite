@@ -437,7 +437,6 @@ mod tests {
     use markup5ever_rcdom::{NodeData, RcDom};
     use std::{
         collections::HashSet,
-        default::Default,
         fs::{self, read_to_string, remove_file, File},
         io::{self, BufWriter},
         path::Path,
