@@ -8,7 +8,7 @@ use owo_colors::{
 };
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Write, string::String};
+use std::{collections::HashMap, fmt::Write};
 
 #[derive(Debug)]
 pub struct CheckResult {
