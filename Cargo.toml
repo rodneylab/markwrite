@@ -37,7 +37,7 @@ pulldown-cmark-escape = "0.10.0"
 reqwest = { version = "0.11.27", features = ["json"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
-serde_yaml = "0.9.33"
+serde_yaml = "0.9.34"
 textwrap = "0.16.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 url = "2.5.0"
