@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn relative_url_returns_false_for_invalid_url() {
         // arrange
-        let url = "http://[:::1]";
+        let url = "http://[:::1]"; // DevSkim: ignore DS137138 - use of HTTP-based URL without TLS is in a unti test
 
         // act
         let result = relative_url(url);
