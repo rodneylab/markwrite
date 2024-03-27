@@ -31,6 +31,7 @@ use std::{
     path::Path,
     pin::Pin,
 };
+use yaml_rust2::YamlLoader;
 
 pub struct ParseInputOptions {
     canonical_root_url: Option<String>,
@@ -369,8 +370,22 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
 
     let (frontmatter_yaml, markdown) = strip_frontmatter(&markdown);
     let frontmatter = match frontmatter_yaml {
-        Some(value) => match serde_yaml::from_str(value) {
-            Ok(frontmatter_value) => frontmatter_value,
+        Some(value) => match YamlLoader::load_from_str(value) {
+            Ok(frontmatter_value) => {
+                let doc = &frontmatter_value[0];
+                let title = doc["title"].as_str().map(std::string::ToString::to_string);
+                let description = doc["description"]
+                    .as_str()
+                    .map(std::string::ToString::to_string);
+                let canonical_url = doc["canonical_url"]
+                    .as_str()
+                    .map(std::string::ToString::to_string);
+                Frontmatter {
+                    title,
+                    description,
+                    canonical_url,
+                }
+            }
             Err(_) => Frontmatter {
                 title: None,
                 description: None,
