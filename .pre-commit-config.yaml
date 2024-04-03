@@ -2,7 +2,7 @@ ci:
   skip: [no-commit-to-branch]
 repos:
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.18.3
+    rev: v3.21.3
     hooks:
       - id: commitizen
         stages:
