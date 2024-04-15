@@ -22,7 +22,7 @@ anyhow = "1.0.82"
 askama = "0.12.1"
 clap = { version = "4.5.3", features = ["derive"] }
 clap-verbosity-flag = "2.1.2"
-deunicode = "1.4.2"
+deunicode = "1.4.4"
 env_logger = "0.11"
 futures = "0.3"
 html5ever = "0.26.0"
