@@ -30,7 +30,11 @@ pub enum NodeData {
     Document,
     Doctype {
         name: StrTendril,
+
+        #[allow(dead_code)]
         public_id: StrTendril,
+
+        #[allow(dead_code)]
         system_id: StrTendril,
     },
     Text {
