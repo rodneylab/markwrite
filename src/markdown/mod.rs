@@ -114,32 +114,29 @@ pub fn parse_markdown_to_html(
     let mut parsing_heading = false;
     let mut word_count: u32 = 0;
 
-    let heading_parser = Parser::new_ext(markdown, options).map(|event| {
-        match &event {
-            Event::Start(Tag::Heading { .. }) => {
-                parsing_heading = true;
-            }
-            Event::Text(value) => {
-                word_count += words(value);
-                if parsing_heading {
-                    current_id_fragments.push_str(value);
-                }
-            }
-            Event::Code(value) => {
-                if parsing_heading {
-                    current_id_fragments.push_str(value);
-                }
-            }
-            Event::End(TagEnd::Heading(_heading_level)) => {
-                let heading = &current_id_fragments;
-                let id = slugified_title(&current_id_fragments);
-                headings.push(Heading::new(heading, &id));
-                current_id_fragments = String::new();
-                parsing_heading = false;
-            }
-            _ => {}
+    let heading_parser = Parser::new_ext(markdown, options).inspect(|event| match event {
+        Event::Start(Tag::Heading { .. }) => {
+            parsing_heading = true;
         }
-        event
+        Event::Text(value) => {
+            word_count += words(value);
+            if parsing_heading {
+                current_id_fragments.push_str(value);
+            }
+        }
+        Event::Code(value) => {
+            if parsing_heading {
+                current_id_fragments.push_str(value);
+            }
+        }
+        Event::End(TagEnd::Heading(_heading_level)) => {
+            let heading = &current_id_fragments;
+            let id = slugified_title(&current_id_fragments);
+            headings.push(Heading::new(heading, &id));
+            current_id_fragments = String::new();
+            parsing_heading = false;
+        }
+        _ => {}
     });
     html::write_html(Cursor::new(&mut bytes), heading_parser)?;
     let reading_time = reading_time_from_words(word_count);
