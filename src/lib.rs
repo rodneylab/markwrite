@@ -92,7 +92,8 @@ fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
     }
 
     if let Some(value) =
-        text[..].rfind(|val: char| val == '.' || val == '\n' || val == '!' || val == '?')
+        //text[..].rfind(|val: char| val == '.' || val == '\n' || val == '!' || val == '?')
+        text[..].rfind(['.', '\n', '!', '?'])
     {
         // last character as a &str
         let last = &text[value..=value];
