@@ -22,4 +22,4 @@ jobs:
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
         env:
           SKIP: no-commit-to-branch
-      - uses: pre-commit-ci/lite-action@1384014f1a0d9c9e0656844e4e6e0f3554b1b3e7 # v1.0.3
+      - uses: pre-commit-ci/lite-action@5d6cc0eb514c891a40562a58a8e71576c5c7fb43 # v1.1.0
