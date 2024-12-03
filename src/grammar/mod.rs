@@ -211,7 +211,7 @@ pub struct Checker<'a> {
     url: &'a str,
 }
 
-impl<'a> Checker<'a> {
+impl Checker<'_> {
     pub fn new(url: Option<&str>) -> Checker {
         let actual_url: &str = match url {
             Some(value) => value,
