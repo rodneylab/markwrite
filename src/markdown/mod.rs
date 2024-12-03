@@ -396,7 +396,7 @@ pub struct ParseMarkdownOptions<'a> {
     skip_code_blocks: bool,
 }
 
-impl<'a> Default for ParseMarkdownOptions<'a> {
+impl Default for ParseMarkdownOptions<'_> {
     fn default() -> Self {
         ParseMarkdownOptions {
             canonical_root_url: None,
