@@ -52,7 +52,7 @@ pub struct Builder<'a> {
     search_term: Option<&'a str>,
 }
 
-impl<'a> Default for Builder<'a> {
+impl Default for Builder<'_> {
     fn default() -> Self {
         Builder {
             canonical_root_url: None,
@@ -111,7 +111,7 @@ impl<'a> Builder<'a> {
                 .upgrade().expect("a node's parent will be pointed to by its parent (or the root pointer), and will not be dropped");
             let pass_process = self.process_child(&mut node);
             if pass_process {
-                self.adjust_node_attributes(&node, &link_rel, &link_target);
+                self.adjust_node_attributes(&node, link_rel.as_ref(), link_target.as_ref());
                 self.adjust_node_children(&node, &mut dom);
                 if self.search_term.is_some() {
                     if let Some(value) =
@@ -153,8 +153,8 @@ impl<'a> Builder<'a> {
     fn adjust_node_attributes(
         &self,
         child: &Handle,
-        link_rel: &Option<StrTendril>,
-        link_target: &Option<StrTendril>,
+        link_rel: Option<&StrTendril>,
+        link_target: Option<&StrTendril>,
     ) {
         if let NodeData::Element {
             ref name,
@@ -171,13 +171,13 @@ impl<'a> Builder<'a> {
                             attr.value = format!("{root_url_value}{pathname}").into();
                         }
                     } else {
-                        if let Some(ref link_target) = *link_target {
+                        if let Some(link_target) = link_target {
                             attrs.push(Attribute {
                                 name: QualName::new(None, ns!(), local_name!("target")),
-                                value: link_target.clone(),
+                                value: (*link_target).clone(),
                             });
                         }
-                        if let Some(ref link_rel) = *link_rel {
+                        if let Some(link_rel) = link_rel {
                             attrs.push(Attribute {
                                 name: QualName::new(None, ns!(), local_name!("rel")),
                                 value: link_rel.clone(),
