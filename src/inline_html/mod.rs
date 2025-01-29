@@ -5,7 +5,7 @@ use nom::{
     combinator::recognize,
     multi::many1_count,
     sequence::{delimited, pair},
-    IResult,
+    IResult, Parser,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -21,13 +21,14 @@ fn parse_html_tag_content(line: &str) -> IResult<&str, (&str, &str)> {
     let (attributes, (tag_name, _space)) = pair(
         recognize(many1_count(alt((alphanumeric1, tag("-"))))),
         multispace0,
-    )(tag_content)?;
+    )
+    .parse(tag_content)?;
     Ok((remainder, (tag_name, attributes)))
 }
 
 fn parse_closing_html_tag(line: &str) -> IResult<&str, (&str, &str, InlineHTMLTagType)> {
     let (remaining_line, (tag_name, tag_attributes)) =
-        delimited(tag("</"), parse_html_tag_content, tag(">"))(line)?;
+        delimited(tag("</"), parse_html_tag_content, tag(">")).parse(line)?;
     Ok((
         remaining_line,
         (
@@ -40,7 +41,7 @@ fn parse_closing_html_tag(line: &str) -> IResult<&str, (&str, &str, InlineHTMLTa
 
 fn parse_opening_html_tag(line: &str) -> IResult<&str, (&str, &str, InlineHTMLTagType)> {
     let (remaining_line, (tag_name, tag_attributes)) =
-        delimited(tag("<"), parse_html_tag_content, tag(">"))(line)?;
+        delimited(tag("<"), parse_html_tag_content, tag(">")).parse(line)?;
     Ok((
         remaining_line,
         (
@@ -52,7 +53,7 @@ fn parse_opening_html_tag(line: &str) -> IResult<&str, (&str, &str, InlineHTMLTa
 }
 
 pub fn parse_node(html_node: &str) -> Option<InlineHTMLTagType> {
-    match alt((parse_opening_html_tag, parse_closing_html_tag))(html_node) {
+    match alt((parse_opening_html_tag, parse_closing_html_tag)).parse(html_node) {
         Ok((_, (_, _, tag_type))) => Some(tag_type),
         Err(_) => None,
     }
