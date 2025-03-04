@@ -18,7 +18,7 @@ name = "markwrite"
 
 [dependencies]
 aho-corasick = "1.1.3"
-anyhow = "1.0.95"
+anyhow = "1.0.97"
 askama = "0.12.1"
 clap = { version = "4.5.30", features = ["derive"] }
 clap-verbosity-flag = "3.0.2"
