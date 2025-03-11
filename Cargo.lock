@@ -1257,7 +1257,7 @@ dependencies = [
  "owo-colors",
  "predicates",
  "pulldown-cmark",
- "pulldown-cmark-escape",
+ "pulldown-cmark-escape 0.11.0",
  "quickcheck",
  "quickcheck_macros",
  "reqwest",
@@ -1665,7 +1665,7 @@ dependencies = [
  "bitflags 2.9.0",
  "getopts",
  "memchr",
- "pulldown-cmark-escape",
+ "pulldown-cmark-escape 0.10.1",
  "unicase",
 ]
 
@@ -1674,6 +1674,12 @@ name = "pulldown-cmark-escape"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd348ff538bc9caeda7ee8cad2d1d48236a1f443c1fa3913c6a02fe0043b1dd3"
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
 
 [[package]]
 name = "quickcheck"
