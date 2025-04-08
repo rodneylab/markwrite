@@ -124,8 +124,8 @@ impl<'a> Builder<'a> {
                         }
                         removed.push(node);
                         continue;
-                    };
-                };
+                    }
+                }
                 dom.append(&parent.clone(), NodeOrText::AppendNode(node.clone()));
             } else {
                 for sub in node.children.borrow_mut().iter_mut() {
@@ -187,7 +187,7 @@ impl<'a> Builder<'a> {
                 }
             } else {
                 // TODO: anchor tag has no href — can emit a warning
-            };
+            }
         }
     }
 
