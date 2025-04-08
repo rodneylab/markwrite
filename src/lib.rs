@@ -310,7 +310,7 @@ pub fn load_dictionary<P: AsRef<Path>, S: ::std::hash::BuildHasher>(
     reader.lines().for_each(|line| {
         if let Ok(word_value) = line {
             dictionary.insert(word_value);
-        };
+        }
     });
 }
 
@@ -319,7 +319,7 @@ fn strip_frontmatter(input: &str) -> (Option<&str>, &str) {
     if let Some(first_line) = lines.next() {
         if first_line.trim_end() != "---" {
             return (None, input);
-        };
+        }
 
         let Some((_first_line, rest)) = input.split_once('\n') else {
             return (None, input);
@@ -432,7 +432,7 @@ pub async fn update_html<P1: AsRef<Path>, P2: AsRef<Path>>(
             )?;
         }
         None => eprintln!("[ ERROR ] Unable to parse markdownto HTML"),
-    };
+    }
     stdout_handle.flush()?;
     Ok(())
 }
