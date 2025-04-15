@@ -32,7 +32,7 @@ nom = { version = "8.0.0", features = ["alloc"] }
 notify = "8.0.0"
 notify-debouncer-mini = "0.6.0"
 owo-colors = "4.2.0"
-pulldown-cmark = "0.10.3"
+pulldown-cmark = "0.13.0"
 pulldown-cmark-escape = "0.10.1"
 reqwest = { version = "0.12.15", features = ["json"] }
 serde = { version = "1.0.219", features = ["derive"] }
