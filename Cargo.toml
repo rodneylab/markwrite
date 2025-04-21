@@ -43,7 +43,7 @@ url = "2.5.4"
 yaml-rust2 = "0.10.1"
 
 [dev-dependencies]
-assert_cmd = "2.0.16"
+assert_cmd = "2.0.17"
 assert_fs = "1.1.2"
 fake = "4.3.0"
 markup5ever_rcdom = "0.2.0"
