@@ -39,20 +39,17 @@ fn test_words() {
 
 #[test]
 fn test_parse_markdown_to_html() {
-    let markdown = r#"
+    let markdown = "
 hello
 =====
 
 * alpha
 * beta
-"#;
+";
 
-    let result =
-        if let Some((result, _headings, _statistics)) = parse_markdown_to_html(markdown).ok() {
-            result
-        } else {
-            panic!("Result expected");
-        };
+    let Some((result, _headings, _statistics)) = parse_markdown_to_html(markdown).ok() else {
+        panic!("Result expected");
+    };
     let expected = String::from(
         r#"<h1 id="hello">hello</h1>
 <ul>
@@ -77,12 +74,9 @@ First paragraph.
 Second paragraph
 "#;
 
-    let result =
-        if let Some((result, _headings, _statistics)) = parse_markdown_to_html(markdown).ok() {
-            result
-        } else {
-            panic!("Result expected");
-        };
+    let Some((result, _headings, _statistics)) = parse_markdown_to_html(markdown).ok() else {
+        panic!("Result expected");
+    };
     let expected = String::from(
         r#"<h1 id="hello">hello</h1>
 <p>First paragraph.</p>

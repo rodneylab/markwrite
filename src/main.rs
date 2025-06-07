@@ -48,7 +48,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
     for events in rx {
         match events {
             Ok(event) => {
-                trace!("{:?}", event);
+                trace!("{event:?}");
 
                 // Editor may temporarily rename the input file while saving it
                 if markwrite::update_html(&path, &output_path, options, stdout_handle)
@@ -58,7 +58,7 @@ async fn debounce_watch<P1: AsRef<Path>, P2: AsRef<Path>>(
                     info!("[ INFO ] Looks like the input file was renamed.");
                 };
             }
-            Err(e) => eprintln!("[ ERROR ] watch error: {:?}.", e),
+            Err(e) => eprintln!("[ ERROR ] watch error: {e:?}."),
         }
     }
 }
