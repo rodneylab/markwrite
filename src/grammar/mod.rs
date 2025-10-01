@@ -212,7 +212,7 @@ pub struct Checker<'a> {
 }
 
 impl Checker<'_> {
-    pub fn new(url: Option<&str>) -> Checker {
+    pub fn new(url: Option<&str>) -> Checker<'_> {
         let actual_url: &str = match url {
             Some(value) => value,
             None => "https://api.languagetoolplus.com/v2/check",
