@@ -344,13 +344,10 @@ where
 
     fn end_tag(&mut self, tag: TagEnd) -> io::Result<()> {
         match tag {
-            TagEnd::Paragraph => {
+            TagEnd::Paragraph | TagEnd::Item => {
                 self.write()?;
             }
             TagEnd::Heading(_level) => {
-                self.write()?;
-            }
-            TagEnd::Item => {
                 self.write()?;
             }
             TagEnd::Link => {
