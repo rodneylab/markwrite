@@ -126,8 +126,7 @@ fn strip_trailing_sentence_stub(text: &str) -> (&str, usize) {
     }
 }
 
-type CombinedGrammarCheckChunkResults =
-    Result<Vec<GrammarCheckResult>, Box<(dyn std::error::Error)>>;
+type CombinedGrammarCheckChunkResults = Result<Vec<GrammarCheckResult>, Box<dyn std::error::Error>>;
 
 async fn grammar_check(markdown: &str, path: &str, stdout_handle: &mut impl Write) {
     let grammar_checker = GrammarChecker::new(None);
